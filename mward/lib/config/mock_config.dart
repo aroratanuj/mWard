@@ -31,6 +31,7 @@ class MockConfig {
   static const double mockLatitude = 31.1048;
   static const double mockLongitude = 77.1734;
   static const String mockAddress = 'Mall Road, Shimla, Himachal Pradesh';
+  static const double defaultLocationAccuracy = 10.0; // meters
 
   // Mock Ward Code
   static const String mockWardCode = 'WARD-001';

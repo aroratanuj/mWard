@@ -451,4 +451,12 @@ class ComplaintProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  Future<void> resetComplaints() async {
+    _complaints.clear();
+    _userComplaints.clear();
+    _error = null;
+    _isLoading = false;
+    notifyListeners();
+  }
 }

@@ -364,14 +364,13 @@ class _CreateNotificationScreenState extends State<CreateNotificationScreen> {
               );
             }),
           ],
-          onChanged: (value) {
+          onChanged: _selectedType != 'broadcast' ? (value) {
             if (value != null) {
               setState(() {
                 _selectedTarget = value;
               });
             }
-          },
-          enabled: _selectedType != 'broadcast',
+          } : null,
         ),
       ],
     );

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 
@@ -12,6 +13,7 @@ import '../../providers/complaint_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../utils/validators.dart';
 import '../../config/theme_config.dart';
 
 enum MediaType { photo, video }
@@ -168,12 +170,16 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
           _recordingPath = path;
         });
 
-        // Update recording duration
-        _audioRecorder.onStateChanged().listen((state) {
-          if (state is RecordingState && state is Recording) {
+        // Update recording duration periodically
+        Timer.periodic(const Duration(seconds: 1), (timer) async {
+          if (_isRecording && mounted) {
             setState(() {
-              _recordingDuration = state.duration;
+              _recordingDuration = Duration(
+                seconds: _recordingDuration.inSeconds + 1,
+              );
             });
+          } else {
+            timer.cancel();
           }
         });
       } else {
@@ -1168,20 +1174,20 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
     return '$minutes:$seconds';
   }
 
-  String _getPriorityLabel(int priority) {
+  String _getPriorityLabel(String priority) {
+    return AppHelpers.getPriorityLabel(priority);
+  }
+
+  int _convertPriorityToInt(String priority) {
     switch (priority) {
-      case 1:
-        return 'Very Low';
-      case 2:
-        return 'Low';
-      case 3:
-        return 'Medium';
-      case 4:
-        return 'High';
-      case 5:
-        return 'Urgent';
+      case 'low':
+        return 1;
+      case 'medium':
+        return 3;
+      case 'high':
+        return 5;
       default:
-        return '';
+        return 3;
     }
   }
 }

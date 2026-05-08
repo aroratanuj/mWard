@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/complaint_provider.dart';
-import '../../utils/constants.dart';
-import '../../utils/helpers.dart';
-import '../../config/theme_config.dart';
-import '../../config/mock_config.dart';
-import '../../widgets/developer_tools.dart';
+import '../../../providers/auth_provider.dart' as local;
+import '../../../providers/complaint_provider.dart';
+import '../../../utils/constants.dart';
+import '../../../utils/helpers.dart';
+import '../../../config/theme_config.dart';
+import '../../../config/mock_config.dart';
+import '../../../widgets/developer_tools.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
+    return Consumer<local.AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.currentUser;
 
@@ -380,7 +380,7 @@ class ProfileTab extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await context.read<AuthProvider>().logout();
+              await context.read<local.AuthProvider>().logout();
               if (context.mounted) {
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   '/',

@@ -15,7 +15,7 @@ class MockWards {
         stateHindi: 'हिमाचल प्रदेश',
         councilorName: 'Ramesh Kumar',
         councilorPhone: '+919876543210',
-        boundaries: const BoundaryData(
+        boundaries: BoundaryData(
           northLat: 31.1100,
           southLat: 31.1000,
           eastLng: 77.1800,
@@ -37,7 +37,7 @@ class MockWards {
         stateHindi: 'हिमाचल प्रदेश',
         councilorName: 'Sunita Sharma',
         councilorPhone: '+919876543211',
-        boundaries: const BoundaryData(
+        boundaries: BoundaryData(
           northLat: 31.1000,
           southLat: 31.0900,
           eastLng: 77.1700,
@@ -59,7 +59,7 @@ class MockWards {
         stateHindi: 'हिमाचल प्रदेश',
         councilorName: 'Vijay Thakur',
         councilorPhone: '+919876543212',
-        boundaries: const BoundaryData(
+        boundaries: BoundaryData(
           northLat: 31.0900,
           southLat: 31.0800,
           eastLng: 77.1600,
@@ -81,7 +81,7 @@ class MockWards {
         stateHindi: 'हिमाचल प्रदेश',
         councilorName: 'Meena Devi',
         councilorPhone: '+919876543213',
-        boundaries: const BoundaryData(
+        boundaries: BoundaryData(
           northLat: 31.0800,
           southLat: 31.0700,
           eastLng: 77.1500,
@@ -103,7 +103,7 @@ class MockWards {
         stateHindi: 'हिमाचल प्रदेश',
         councilorName: 'Rajender Singh',
         councilorPhone: '+919876543214',
-        boundaries: const BoundaryData(
+        boundaries: BoundaryData(
           northLat: 31.0700,
           southLat: 31.0600,
           eastLng: 77.1400,

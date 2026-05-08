@@ -218,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        _phoneController.text = '9876543210';
+                        _phoneController.text = '9812345678';
                         _sendOTP();
                       },
                       icon: const Icon(Icons.person, size: 18),
@@ -232,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        _phoneController.text = '9876543211';
+                        _phoneController.text = '9876543210';
                         _sendOTP();
                       },
                       icon: const Icon(Icons.admin_panel_settings, size: 18),

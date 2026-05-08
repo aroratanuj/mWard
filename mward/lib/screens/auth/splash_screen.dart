@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart' as local;
 import '../../config/theme_config.dart';
 import '../../config/mock_config.dart';
 import '../../utils/constants.dart';
@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthAndNavigate() async {
     try {
-      final authProvider = context.read<AuthProvider>();
+      final authProvider = context.read<local.AuthProvider>();
 
       // Simulate splash screen delay for animations
       await Future.delayed(const Duration(milliseconds: 2000));

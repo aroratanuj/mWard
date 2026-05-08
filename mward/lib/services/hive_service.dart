@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class HiveService {
   static const String _complaintsBoxName = 'complaints_box';
@@ -13,17 +14,49 @@ class HiveService {
   static Box? _usersBox;
   static Box? _settingsBox;
 
+  static bool _isInitialized = false;
+  static String? _initError;
+
   // Initialize Hive
   static Future<void> init() async {
-    final appDocDir = await getApplicationDocumentsDirectory();
-    Hive.init(appDocDir.path);
+    if (_isInitialized) {
+      debugPrint('HiveService: Already initialized');
+      return;
+    }
 
-    // Open boxes
-    _complaintsBox = await Hive.openBox(_complaintsBoxName);
-    _notificationsBox = await Hive.openBox(_notificationsBoxName);
-    _usersBox = await Hive.openBox(_usersBoxName);
-    _settingsBox = await Hive.openBox(_settingsBoxName);
+    try {
+      Directory appDocDir;
+      
+      try {
+        appDocDir = await getApplicationDocumentsDirectory();
+      } catch (e) {
+        // Fallback to temporary directory if getApplicationDocumentsDirectory fails
+        debugPrint('HiveService: getApplicationDocumentsDirectory failed, using temp directory: $e');
+        appDocDir = Directory.systemTemp;
+      }
+      
+      Hive.init(appDocDir.path);
+
+      // Open boxes
+      _complaintsBox = await Hive.openBox(_complaintsBoxName);
+      _notificationsBox = await Hive.openBox(_notificationsBoxName);
+      _usersBox = await Hive.openBox(_usersBoxName);
+      _settingsBox = await Hive.openBox(_settingsBoxName);
+      
+      _isInitialized = true;
+      _initError = null;
+      debugPrint('HiveService: Initialized successfully at ${appDocDir.path}');
+    } catch (e) {
+      _initError = e.toString();
+      _isInitialized = false;
+      debugPrint('HiveService: Initialization failed: $e');
+      rethrow;
+    }
   }
+
+  // Check if Hive is properly initialized
+  static bool get isInitialized => _isInitialized;
+  static String? get initError => _initError;
 
   // Close all boxes
   static Future<void> close() async {

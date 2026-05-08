@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../models/notification.dart';
+import '../models/notification.dart' as model;
 import '../config/theme_config.dart';
 
 class NotificationCard extends StatelessWidget {
-  final Notification notification;
+  final model.Notification notification;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 

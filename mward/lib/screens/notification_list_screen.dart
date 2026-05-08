@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../models/notification.dart';
+import '../models/notification.dart' as model;
 import '../providers/notification_provider.dart';
 import '../config/theme_config.dart';
 
@@ -136,7 +136,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
-  Widget _buildNotificationTile(Notification notification) {
+  Widget _buildNotificationTile(model.Notification notification) {
     return ListTile(
       leading: Container(
         width: 48,
@@ -237,7 +237,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
-  void _showNotificationDetails(Notification notification) {
+  void _showNotificationDetails(model.Notification notification) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

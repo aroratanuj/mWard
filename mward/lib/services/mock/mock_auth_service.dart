@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user.dart';
 import '../../mock_data/mock_users.dart';
 import '../../config/mock_config.dart';
 import '../../utils/constants.dart';
 
 class MockAuthService {
+  static const String _lastLoggedInPhoneKey = 'mock_last_logged_in_phone';
+
   // Simulate network delay
   Future<void> _simulateDelay() async {
     await Future.delayed(const Duration(milliseconds: MockConfig.mockApiDelay));
@@ -67,6 +70,9 @@ class MockAuthService {
       );
     }
 
+    // Save as last logged in user
+    await _saveLastLoggedInPhone(phoneNumber);
+
     debugPrint('Mock: User verified: ${user.phoneNumber}');
     return user;
   }
@@ -124,20 +130,37 @@ class MockAuthService {
 
   // Save last logged in phone (for persistence)
   Future<void> _saveLastLoggedInPhone(String phoneNumber) async {
-    // In real implementation, use shared preferences
-    debugPrint('Mock: Saved last logged in phone: $phoneNumber');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastLoggedInPhoneKey, phoneNumber);
+      debugPrint('Mock: Saved last logged in phone: $phoneNumber');
+    } catch (e) {
+      debugPrint('Mock: Failed to save phone number: $e');
+    }
   }
 
   // Get last logged in phone
   Future<String?> _getLastLoggedInPhone() async {
-    // In real implementation, use shared preferences
-    return MockConfig.testPhoneUser; // Default to user for demo
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastPhone = prefs.getString(_lastLoggedInPhoneKey);
+      debugPrint('Mock: Retrieved last logged in phone: $lastPhone');
+      return lastPhone;
+    } catch (e) {
+      debugPrint('Mock: Failed to retrieve phone number: $e');
+      return null;
+    }
   }
 
   // Clear last logged in phone
   Future<void> _clearLastLoggedInPhone() async {
-    // In real implementation, use shared preferences
-    debugPrint('Mock: Cleared last logged in phone');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lastLoggedInPhoneKey);
+      debugPrint('Mock: Cleared last logged in phone');
+    } catch (e) {
+      debugPrint('Mock: Failed to clear phone number: $e');
+    }
   }
 
   // Reset password (Mock)

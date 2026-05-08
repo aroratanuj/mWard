@@ -212,4 +212,11 @@ class NotificationProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  Future<void> resetNotifications() async {
+    _notifications.clear();
+    _error = null;
+    _isLoading = false;
+    notifyListeners();
+  }
 }

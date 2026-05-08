@@ -10,13 +10,23 @@ class MockStorageService {
     await Future.delayed(const Duration(milliseconds: MockConfig.mockImageUploadDelay));
   }
 
+  // Get app documents directory with fallback
+  Future<Directory> _getAppDirectory() async {
+    try {
+      return await getApplicationDocumentsDirectory();
+    } catch (e) {
+      debugPrint('MockStorageService: getApplicationDocumentsDirectory failed, using temp directory: $e');
+      return Directory.systemTemp;
+    }
+  }
+
   // Upload image to mock storage
   Future<String> uploadImage(String filePath, {String? folder}) async {
     await _simulateDelay();
 
     // In mock mode, we just copy the file to app documents directory
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await _getAppDirectory();
       final fileName = path.basename(filePath);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final newFileName = '${timestamp}_$fileName';
@@ -64,7 +74,7 @@ class MockStorageService {
       final pathSegments = uri.pathSegments;
       if (pathSegments.length >= 2) {
         final fileName = pathSegments.last;
-        final directory = await getApplicationDocumentsDirectory();
+        final directory = await _getAppDirectory();
         final filePath = path.join(directory.path, 'uploads', fileName);
         
         final file = File(filePath);
@@ -92,24 +102,29 @@ class MockStorageService {
 
   // List files in a folder
   Future<List<String>> listFiles({String? folder}) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final uploadDir = Directory(path.join(directory.path, folder ?? 'uploads'));
-    
-    if (!await uploadDir.exists()) {
+    try {
+      final directory = await _getAppDirectory();
+      final uploadDir = Directory(path.join(directory.path, folder ?? 'uploads'));
+      
+      if (!await uploadDir.exists()) {
+        return [];
+      }
+      
+      final files = uploadDir.listSync();
+      return files
+          .where((file) => file is File)
+          .map((file) => 'https://mock-storage.mward.app/uploads/${path.basename(file.path)}')
+          .toList();
+    } catch (e) {
+      debugPrint('Mock: Error listing files: $e');
       return [];
     }
-    
-    final files = uploadDir.listSync();
-    return files
-        .where((file) => file is File)
-        .map((file) => 'https://mock-storage.mward.app/uploads/${path.basename(file.path)}')
-        .toList();
   }
 
   // Clear all uploaded files
   Future<void> clearAllFiles({String? folder}) async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await _getAppDirectory();
       final uploadDir = Directory(path.join(directory.path, folder ?? 'uploads'));
       
       if (await uploadDir.exists()) {
@@ -128,7 +143,7 @@ class MockStorageService {
       final pathSegments = uri.pathSegments;
       if (pathSegments.length >= 2) {
         final fileName = pathSegments.last;
-        final directory = await getApplicationDocumentsDirectory();
+        final directory = await _getAppDirectory();
         final filePath = path.join(directory.path, 'uploads', fileName);
         
         final file = File(filePath);
@@ -149,7 +164,7 @@ class MockStorageService {
       final pathSegments = uri.pathSegments;
       if (pathSegments.length >= 2) {
         final fileName = pathSegments.last;
-        final directory = await getApplicationDocumentsDirectory();
+        final directory = await _getAppDirectory();
         final filePath = path.join(directory.path, 'uploads', fileName);
         
         final file = File(filePath);

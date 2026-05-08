@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/complaint_provider.dart';
-import '../../utils/constants.dart';
-import '../../utils/helpers.dart';
-import '../../config/theme_config.dart';
+import '../../../providers/complaint_provider.dart';
+import '../../../providers/auth_provider.dart' as local;
+import '../../../utils/constants.dart';
+import '../../../utils/helpers.dart';
+import '../../../config/theme_config.dart';
 import '../../complaint/complaint_details_screen.dart';
 
 class HistoryTab extends StatefulWidget {
@@ -24,7 +25,7 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 
   Future<void> _loadComplaints() async {
-    final authProvider = context.read<AuthProvider>();
+    final authProvider = context.read<local.AuthProvider>();
     final complaintProvider = context.read<ComplaintProvider>();
 
     if (authProvider.currentUser != null) {

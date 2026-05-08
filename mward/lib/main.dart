@@ -32,8 +32,13 @@ void main() async {
 
   // Initialize Hive for mock mode
   if (MockConfig.isMockMode) {
-    await HiveService.init();
-    debugPrint('Mock Mode: Initialized Hive for local storage');
+    try {
+      await HiveService.init();
+      debugPrint('Mock Mode: Initialized Hive for local storage');
+    } catch (e) {
+      debugPrint('Mock Mode: Failed to initialize Hive: $e');
+      debugPrint('Mock Mode: Continuing without persistent storage');
+    }
   } else {
     await _configureAmplify();
   }
