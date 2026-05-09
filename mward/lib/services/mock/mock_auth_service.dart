@@ -4,8 +4,9 @@ import '../../models/user.dart';
 import '../../mock_data/mock_users.dart';
 import '../../config/mock_config.dart';
 import '../../utils/constants.dart';
+import '../auth_service.dart';
 
-class MockAuthService {
+class MockAuthService implements AuthService {
   static const String _lastLoggedInPhoneKey = 'mock_last_logged_in_phone';
 
   // Simulate network delay
@@ -98,14 +99,18 @@ class MockAuthService {
 
   // Update user profile (Mock)
   Future<User> updateUserProfile({
-    required String userId,
     String? name,
     String? email,
     String? photoUrl,
   }) async {
     await _simulateDelay();
 
-    final user = MockUsers.getUserById(userId);
+    final currentUser = await getCurrentUser();
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+
+    final user = MockUsers.getUserById(currentUser!.userId);
     if (user == null) {
       throw Exception('User not found');
     }
@@ -116,7 +121,7 @@ class MockAuthService {
       photoUrl: photoUrl,
     );
 
-    debugPrint('Mock: User profile updated: $userId');
+    debugPrint('Mock: User profile updated: ${currentUser!.userId}');
     return updatedUser;
   }
 

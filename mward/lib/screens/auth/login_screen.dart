@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart' as real;
-import '../../providers/mock/mock_auth_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/validators.dart';
 import '../../config/theme_config.dart';
@@ -27,10 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _sendOTP([BuildContext? buttonContext]) async {
-    // Use the provided button context or fall back to the widget context
-    final effectiveContext = buttonContext ?? context;
-
+  Future<void> _sendOTP() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -40,25 +36,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final authProvider = context.read<AuthProvider>();
       final phoneNumber = '+91${_phoneController.text.trim()}';
-      debugPrint('Login: Sending OTP to $phoneNumber');
-      debugPrint('Login: Mock mode is ${MockConfig.isMockMode}');
 
-      if (MockConfig.isMockMode) {
-        debugPrint('Login: Attempting to read MockAuthProvider from context');
-        try {
-          final mockAuthProvider = effectiveContext.read<MockAuthProvider>();
-          debugPrint('Login: Successfully read MockAuthProvider');
-          await mockAuthProvider.sendOTP(phoneNumber);
-          debugPrint('Login: OTP sent successfully via MockAuthProvider');
-        } catch (e) {
-          debugPrint('Login: Error reading MockAuthProvider: $e');
-          rethrow;
-        }
-      } else {
-        final authProvider = effectiveContext.read<real.AuthProvider>();
-        await authProvider.sendOTP(phoneNumber);
-      }
+      await authProvider.sendOTP(phoneNumber);
 
       if (mounted) {
         Navigator.of(context).push(
@@ -68,9 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      debugPrint('Login: Error in _sendOTP: $e');
-      debugPrint('Login: Error type: ${e.runtimeType}');
-      debugPrint('Login: Error toString: ${e.toString()}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -99,7 +77,6 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 60),
 
-              // Logo/Illustration
               Container(
                 width: 120,
                 height: 120,
@@ -115,7 +92,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              // Welcome Text
               Text(
                 'Welcome to ${AppConstants.appName}',
                 style: const TextStyle(
@@ -137,13 +113,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 48),
 
-              // Login Form
               Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Phone Number Input
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
@@ -173,41 +147,37 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Send OTP Button
-                    Builder(
-                      builder: (context) => ElevatedButton(
-                        onPressed: _isSubmitting ? null : () => _sendOTP(context),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                    ElevatedButton(
+                      onPressed: _isSubmitting ? null : _sendOTP,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: _isSubmitting
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text(
-                                'Send OTP',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Send OTP',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
 
-              // Divider
               Row(
                 children: [
                   Expanded(child: Divider(color: Colors.grey[300])),
@@ -226,7 +196,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Demo Login Buttons (for testing)
               Text(
                 'Quick Login (Demo)',
                 style: TextStyle(
@@ -241,33 +210,29 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Builder(
-                      builder: (context) => OutlinedButton.icon(
-                        onPressed: () {
-                          _phoneController.text = MockConfig.testPhoneUserShort;
-                          _sendOTP(context);
-                        },
-                        icon: const Icon(Icons.person, size: 18),
-                        label: const Text('User Demo'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _phoneController.text = MockConfig.testPhoneUserShort;
+                        _sendOTP();
+                      },
+                      icon: const Icon(Icons.person, size: 18),
+                      label: const Text('User Demo'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Builder(
-                      builder: (context) => OutlinedButton.icon(
-                        onPressed: () {
-                          _phoneController.text = MockConfig.testPhoneAdminShort;
-                          _sendOTP(context);
-                        },
-                        icon: const Icon(Icons.admin_panel_settings, size: 18),
-                        label: const Text('Admin Demo'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _phoneController.text = MockConfig.testPhoneAdminShort;
+                        _sendOTP();
+                      },
+                      icon: const Icon(Icons.admin_panel_settings, size: 18),
+                      label: const Text('Admin Demo'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -275,7 +240,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Terms and Conditions
               Text(
                 'By continuing, you agree to our Terms of Service and Privacy Policy',
                 style: TextStyle(
@@ -286,7 +250,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Language Toggle
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -310,6 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 14,
                       color: Colors.grey[600],
                       fontWeight: FontWeight.bold,
+                      fontFamily: 'NotoSansDevanagari',
                     ),
                   ),
                 ],

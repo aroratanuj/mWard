@@ -1,13 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_api/amplify_api.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:convert';
 import '../models/complaint.dart';
-import '../utils/constants.dart';
-import '../utils/helpers.dart';
+import '../services/complaint_service.dart';
 
 class ComplaintProvider with ChangeNotifier {
+  final ComplaintService _service;
+  
   List<Complaint> _complaints = [];
   List<Complaint> _userComplaints = [];
   bool _isLoading = false;
@@ -18,59 +16,15 @@ class ComplaintProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Load all complaints (admin)
+  ComplaintProvider(this._service);
+
   Future<void> loadAllComplaints() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final request = GraphQLRequest(
-        document: '''
-          query GetAllComplaints {
-            listComplaints {
-              items {
-                complaintId
-                userId
-                wardCode
-                title
-                description
-                category
-                priority
-                status
-                photoUrls
-                location {
-                  latitude
-                  longitude
-                  accuracy
-                }
-                address
-                createdAt
-                updatedAt
-                resolvedAt
-                assignedTo
-                resolutionNote
-                comments {
-                  commentId
-                  userId
-                  userName
-                  text
-                  createdAt
-                }
-              }
-              nextToken
-            }
-          }
-        ''',
-      );
-
-      final response = await Amplify.API.query(request: request).response;
-      final data = jsonDecode(response.data);
-
-      _complaints = (data['listComplaints']['items'] as List)
-          .map((item) => Complaint.fromJson(item))
-          .toList();
-
+      _complaints = await _service.getAllComplaints();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -80,63 +34,13 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // Load user complaints
   Future<void> loadUserComplaints(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final request = GraphQLRequest(
-        document: '''
-          query GetUserComplaints(\$userId: ID!) {
-            queryComplaintsByUserId(
-              userId: \$userId
-              sortDirection: DESC
-            ) {
-              items {
-                complaintId
-                userId
-                wardCode
-                title
-                description
-                category
-                priority
-                status
-                photoUrls
-                location {
-                  latitude
-                  longitude
-                  accuracy
-                }
-                address
-                createdAt
-                updatedAt
-                resolvedAt
-                assignedTo
-                resolutionNote
-                comments {
-                  commentId
-                  userId
-                  userName
-                  text
-                  createdAt
-                }
-              }
-              nextToken
-            }
-          }
-        ''',
-        variables: {'userId': userId},
-      );
-
-      final response = await Amplify.API.query(request: request).response;
-      final data = jsonDecode(response.data);
-
-      _userComplaints = (data['queryComplaintsByUserId']['items'] as List)
-          .map((item) => Complaint.fromJson(item))
-          .toList();
-
+      _userComplaints = await _service.getUserComplaints(userId);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -146,53 +50,9 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // Get complaint by ID
   Future<Complaint?> getComplaintById(String complaintId) async {
     try {
-      final request = GraphQLRequest(
-        document: '''
-          query GetComplaint(\$complaintId: ID!) {
-            getComplaint(id: \$complaintId) {
-              complaintId
-              userId
-              wardCode
-              title
-              description
-              category
-              priority
-              status
-              photoUrls
-              location {
-                latitude
-                longitude
-                accuracy
-              }
-              address
-              createdAt
-              updatedAt
-              resolvedAt
-              assignedTo
-              resolutionNote
-              comments {
-                commentId
-                userId
-                userName
-                text
-                createdAt
-              }
-            }
-          }
-        ''',
-        variables: {'complaintId': complaintId},
-      );
-
-      final response = await Amplify.API.query(request: request).response;
-      final data = jsonDecode(response.data);
-
-      if (data['getComplaint'] != null) {
-        return Complaint.fromJson(data['getComplaint']);
-      }
-      return null;
+      return await _service.getComplaintById(complaintId);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -200,7 +60,6 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // Create complaint
   Future<void> createComplaint({
     required String title,
     required String description,
@@ -215,65 +74,20 @@ class ComplaintProvider with ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      final complaintId = AppHelpers.generateComplaintId();
-
-      final request = GraphQLRequest(
-        document: '''
-          mutation CreateComplaint(\$input: CreateComplaintInput!) {
-            createComplaint(input: \$input) {
-              complaintId
-              userId
-              wardCode
-              title
-              description
-              category
-              priority
-              status
-              photoUrls
-              location {
-                latitude
-                longitude
-                accuracy
-              }
-              address
-              createdAt
-              updatedAt
-              resolvedAt
-              assignedTo
-              resolutionNote
-              comments {
-                commentId
-                userId
-                userName
-                text
-                createdAt
-              }
-            }
-          }
-        ''',
-        variables: {
-          'input': {
-            'complaintId': complaintId,
-            'title': title,
-            'description': description,
-            'category': category,
-            'priority': priority,
-            'status': 'pending',
-            'photoUrls': photoUrls,
-            'location': {
-              'latitude': location.latitude,
-              'longitude': location.longitude,
-              'accuracy': location.accuracy,
-            },
-            'address': address,
-          },
+      final newComplaint = await _service.createComplaint(
+        title: title,
+        description: description,
+        category: category,
+        priority: priority,
+        photoUrls: photoUrls,
+        location: {
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+          'accuracy': location.accuracy,
         },
+        address: address,
       );
 
-      final response = await Amplify.API.mutate(request: request).response;
-      final data = jsonDecode(response.data);
-
-      final newComplaint = Complaint.fromJson(data['createComplaint']);
       _userComplaints.insert(0, newComplaint);
 
       _isLoading = false;
@@ -286,7 +100,6 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // Update complaint status (admin)
   Future<void> updateComplaintStatus(
     String complaintId,
     String status, {
@@ -298,40 +111,7 @@ class ComplaintProvider with ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      final request = GraphQLRequest(
-        document: '''
-          mutation UpdateComplaintStatus(
-            \$complaintId: ID!
-            \$status: String!
-            \$resolutionNote: String
-            \$assignedTo: String
-          ) {
-            updateComplaintStatus(
-              input: {
-                complaintId: \$complaintId
-                status: \$status
-                resolutionNote: \$resolutionNote
-                assignedTo: \$assignedTo
-              }
-            ) {
-              complaintId
-              status
-              resolutionNote
-              assignedTo
-              resolvedAt
-              updatedAt
-            }
-          }
-        ''',
-        variables: {
-          'complaintId': complaintId,
-          'status': status,
-          'resolutionNote': resolutionNote,
-          'assignedTo': assignedTo,
-        },
-      );
-
-      await Amplify.API.mutate(request: request).response;
+      await _service.updateComplaintStatus(complaintId, status);
 
       // Update local complaint
       final userIndex = _userComplaints.indexWhere((c) => c.complaintId == complaintId);
@@ -368,7 +148,6 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // Add comment to complaint
   Future<void> addComment(
     String complaintId,
     String text,
@@ -376,42 +155,17 @@ class ComplaintProvider with ChangeNotifier {
     String userName,
   ) async {
     try {
-      final request = GraphQLRequest(
-        document: '''
-          mutation AddComment(
-            \$complaintId: ID!
-            \$text: String!
-            \$userId: ID!
-            \$userName: String!
-          ) {
-            addComment(
-              input: {
-                complaintId: \$complaintId
-                text: \$text
-                userId: \$userId
-                userName: \$userName
-              }
-            ) {
-              commentId
-              complaintId
-              userId
-              userName
-              text
-              createdAt
-            }
-          }
-        ''',
-        variables: {
-          'complaintId': complaintId,
-          'text': text,
-          'userId': userId,
-          'userName': userName,
-        },
+      final comment = Comment(
+        commentId: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: userId,
+        userName: userName,
+        text: text,
+        createdAt: DateTime.now(),
       );
 
-      await Amplify.API.mutate(request: request).response;
+      await _service.addComment(complaintId, comment);
 
-      // Reload complaints to get updated comments
+      // Reload to get updated comments
       await loadUserComplaints(userId);
     } catch (e) {
       _error = e.toString();
@@ -420,30 +174,21 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // Delete complaint (admin only)
-  Future<void> deleteComplaint(String complaintId) async {
+  Future<List<Complaint>> searchComplaints(String query) async {
     try {
-      final request = GraphQLRequest(
-        document: '''
-          mutation DeleteComplaint(\$complaintId: ID!) {
-            deleteComplaint(input: { id: \$complaintId }) {
-              id
-            }
-          }
-        ''',
-        variables: {'complaintId': complaintId},
-      );
-
-      await Amplify.API.mutate(request: request).response;
-
-      _complaints.removeWhere((c) => c.complaintId == complaintId);
-      _userComplaints.removeWhere((c) => c.complaintId == complaintId);
-
-      notifyListeners();
+      return await _service.searchComplaints(query);
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
-      rethrow;
+      return [];
+    }
+  }
+
+  Future<Map<String, int>> getComplaintStats(String userId) async {
+    try {
+      return await _service.getComplaintStats(userId);
+    } catch (e) {
+      _error = e.toString();
+      return {};
     }
   }
 
@@ -453,6 +198,7 @@ class ComplaintProvider with ChangeNotifier {
   }
 
   Future<void> resetComplaints() async {
+    await _service.resetComplaints();
     _complaints.clear();
     _userComplaints.clear();
     _error = null;

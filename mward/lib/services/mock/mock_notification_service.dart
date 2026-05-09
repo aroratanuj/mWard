@@ -3,8 +3,20 @@ import '../../models/notification.dart';
 import '../../mock_data/mock_notifications.dart';
 import '../../config/mock_config.dart';
 import '../hive_service.dart';
+import '../notification_service_interface.dart';
 
-class MockNotificationService {
+class MockNotificationService implements NotificationService {
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  bool get isLoading => _isLoading;
+
+  @override
+  String? get error => _error;
+
+  @override
+  bool get hasError => _error != null;
   // Simulate network delay
   Future<void> _simulateDelay() async {
     await Future.delayed(const Duration(milliseconds: MockConfig.mockApiDelay));
@@ -279,10 +291,12 @@ class MockNotificationService {
   }
 
   // Reset all notifications (for testing)
+  @override
   Future<void> resetNotifications() async {
     if (MockConfig.persistData) {
       await HiveService.deleteNotification('all'); // Clear all
     }
+    _error = null;
     debugPrint('Mock: All notifications reset');
   }
 }

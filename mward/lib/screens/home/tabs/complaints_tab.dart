@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import '../../../providers/complaint_provider.dart' as real_complaint;
-import '../../../providers/mock/mock_complaint_provider.dart';
-import '../../../providers/auth_provider.dart' as local;
-import '../../../providers/mock/mock_auth_provider.dart';
+import '../../../providers/complaint_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../models/complaint.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/helpers.dart';
 import '../../../config/theme_config.dart';
-import '../../../config/mock_config.dart';
 import '../../complaint/complaint_details_screen.dart';
 
 class ComplaintsTab extends StatefulWidget {
@@ -23,48 +19,30 @@ class _ComplaintsTabState extends State<ComplaintsTab> {
   @override
   void initState() {
     super.initState();
-    _loadComplaints();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadComplaints();
+    });
   }
 
   Future<void> _loadComplaints() async {
-    if (MockConfig.isMockMode) {
-      final authProvider = context.read<MockAuthProvider>();
-      final complaintProvider = context.read<MockComplaintProvider>();
+    final authProvider = context.read<AuthProvider>();
+    final complaintProvider = context.read<ComplaintProvider>();
 
-      if (authProvider.currentUser != null) {
-        await complaintProvider.loadUserComplaints(
-          authProvider.currentUser!.userId,
-        );
-      }
-    } else {
-      final authProvider = context.read<local.AuthProvider>();
-      final complaintProvider = context.read<real_complaint.ComplaintProvider>();
-
-      if (authProvider.currentUser != null) {
-        await complaintProvider.loadUserComplaints(
-          authProvider.currentUser!.userId,
-        );
-      }
+    if (authProvider.currentUser != null) {
+      await complaintProvider.loadUserComplaints(
+        authProvider.currentUser!.userId,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (MockConfig.isMockMode) {
-      return Consumer<MockComplaintProvider>(
-        builder: (context, complaintProvider, child) {
-          final complaints = complaintProvider.userComplaints;
-          return _buildContent(complaints, complaintProvider.isLoading);
-        },
-      );
-    } else {
-      return Consumer<real_complaint.ComplaintProvider>(
-        builder: (context, complaintProvider, child) {
-          final complaints = complaintProvider.userComplaints;
-          return _buildContent(complaints, complaintProvider.isLoading);
-        },
-      );
-    }
+    return Consumer<ComplaintProvider>(
+      builder: (context, complaintProvider, child) {
+        final complaints = complaintProvider.userComplaints;
+        return _buildContent(complaints, complaintProvider.isLoading);
+      },
+    );
   }
 
   Widget _buildContent(List<dynamic> complaints, bool isLoading) {
@@ -163,11 +141,11 @@ class _ComplaintsTabState extends State<ComplaintsTab> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Icon(
-                    Icons.category,
+                    Icons.category_outlined,
                     size: 16,
                     color: Colors.grey[500],
                   ),
@@ -176,22 +154,25 @@ class _ComplaintsTabState extends State<ComplaintsTab> {
                     AppHelpers.getCategoryLabel(complaint.category),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: Colors.grey[500],
                     ),
                   ),
                   const SizedBox(width: 16),
                   Icon(
-                    Icons.priority_high,
+                    Icons.location_on_outlined,
                     size: 16,
-                    color: AppHelpers.getPriorityColor(complaint.priority),
+                    color: Colors.grey[500],
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    AppHelpers.getPriorityLabel(complaint.priority),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppHelpers.getPriorityColor(complaint.priority),
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      complaint.address ?? 'Unknown location',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -200,34 +181,18 @@ class _ComplaintsTabState extends State<ComplaintsTab> {
               Row(
                 children: [
                   Icon(
-                    Icons.access_time,
-                    size: 16,
+                    Icons.calendar_today_outlined,
+                    size: 14,
                     color: Colors.grey[500],
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    AppHelpers.formatRelativeTime(complaint.createdAt),
+                    AppHelpers.formatDate(complaint.createdAt),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[500],
                     ),
                   ),
-                  const Spacer(),
-                  if (complaint.photoUrls.isNotEmpty) ...[
-                    Icon(
-                      Icons.photo_camera,
-                      size: 16,
-                      color: Colors.grey[500],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${complaint.photoUrls.length}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ],
@@ -238,37 +203,44 @@ class _ComplaintsTabState extends State<ComplaintsTab> {
   }
 
   Widget _buildStatusBadge(String status) {
+    Color color;
+    String label;
+
+    switch (status) {
+      case 'pending':
+        color = Colors.orange;
+        label = 'Pending';
+        break;
+      case 'in-progress':
+        color = Colors.blue;
+        label = 'In Progress';
+        break;
+      case 'resolved':
+        color = Colors.green;
+        label = 'Resolved';
+        break;
+      case 'rejected':
+        color = Colors.red;
+        label = 'Rejected';
+        break;
+      default:
+        color = Colors.grey;
+        label = 'Unknown';
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppHelpers.getStatusColor(status).withOpacity(0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppHelpers.getStatusColor(status),
-          width: 1,
-        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            AppHelpers.getStatusIcon(status),
-            size: 12,
-            color: AppHelpers.getStatusColor(status),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            AppHelpers.getStatusLabel(status),
-            style: TextStyle(
-              fontSize: 11,
-              color: AppHelpers.getStatusColor(status),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import '../models/user.dart';
-import '../utils/constants.dart';
+import '../services/auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
+  final AuthService _service;
+  
   User? _currentUser;
   bool _isAuthenticated = false;
   bool _isLoading = false;
@@ -15,18 +15,18 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  AuthProvider(this._service);
+
   Future<void> checkAuthStatus() async {
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
-      final session = await Amplify.Auth.fetchAuthSession();
-      final isSignedIn = session.isSignedIn;
+      final isAuth = await _service.checkAuthStatus();
 
-      if (isSignedIn) {
-        final attributes = await Amplify.Auth.fetchUserAttributes();
-        final user = _parseUserAttributes(attributes);
-        _currentUser = user;
+      if (isAuth) {
+        _currentUser = await _service.getCurrentUser();
         _isAuthenticated = true;
       } else {
         _currentUser = null;
@@ -48,14 +48,7 @@ class AuthProvider with ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      final result = await Amplify.Auth.signIn(
-        username: phoneNumber,
-      );
-
-      if (result.isSignedIn) {
-        // User already exists, sign them in
-        await checkAuthStatus();
-      }
+      await _service.sendOTP(phoneNumber);
 
       _isLoading = false;
       notifyListeners();
@@ -73,13 +66,9 @@ class AuthProvider with ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      final result = await Amplify.Auth.confirmSignIn(
-        confirmationValue: otp,
-      );
-
-      if (result.isSignedIn) {
-        await checkAuthStatus();
-      }
+      final user = await _service.verifyOTP(phoneNumber, otp);
+      _currentUser = user;
+      _isAuthenticated = true;
 
       _isLoading = false;
       notifyListeners();
@@ -96,7 +85,7 @@ class AuthProvider with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      await Amplify.Auth.signOut();
+      await _service.logout();
 
       _currentUser = null;
       _isAuthenticated = false;
@@ -117,42 +106,16 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
-      // Update user attributes in Cognito
-      final attributes = <AuthUserAttribute>[];
+      final updatedUser = await _service.updateUserProfile(
+        name: name,
+        email: email,
+        photoUrl: photoUrl,
+      );
 
-      if (name != null) {
-        attributes.add(
-          AuthUserAttribute(
-            userAttributeKey: CognitoUserAttributeKey.name,
-            value: name,
-          ),
-        );
-      }
-
-      if (email != null) {
-        attributes.add(
-          AuthUserAttribute(
-            userAttributeKey: CognitoUserAttributeKey.email,
-            value: email,
-          ),
-        );
-      }
-
-      if (attributes.isNotEmpty) {
-        await Amplify.Auth.updateUserAttributes(attributes: attributes);
-      }
-
-      // Update local user object
-      if (_currentUser != null) {
-        _currentUser = _currentUser!.copyWith(
-          name: name ?? _currentUser!.name,
-          email: email ?? _currentUser!.email,
-          photoUrl: photoUrl ?? _currentUser!.photoUrl,
-        );
-      }
-
+      _currentUser = updatedUser;
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -161,48 +124,6 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
-  }
-
-  User _parseUserAttributes(List<AuthUserAttribute> attributes) {
-    String userId = '';
-    String phoneNumber = '';
-    String? name;
-    String? email;
-    String role = AppConstants.roleUser;
-    String? wardCode;
-
-    for (final attr in attributes) {
-      switch (attr.userAttributeKey.key) {
-        case CognitoUserAttributeKey.sub:
-          userId = attr.value;
-          break;
-        case CognitoUserAttributeKey.phoneNumber:
-          phoneNumber = attr.value;
-          break;
-        case CognitoUserAttributeKey.name:
-          name = attr.value;
-          break;
-        case CognitoUserAttributeKey.email:
-          email = attr.value;
-          break;
-        case 'custom:role':
-          role = attr.value;
-          break;
-        case 'custom:wardCode':
-          wardCode = attr.value;
-          break;
-      }
-    }
-
-    return User(
-      userId: userId,
-      phoneNumber: phoneNumber,
-      name: name,
-      email: email,
-      role: role,
-      wardCode: wardCode,
-      createdAt: DateTime.now(),
-    );
   }
 
   void clearError() {

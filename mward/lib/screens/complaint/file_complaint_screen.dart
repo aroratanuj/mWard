@@ -4,19 +4,17 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../providers/complaint_provider.dart' as real_complaint;
-import '../../providers/mock/mock_complaint_provider.dart';
-import '../../providers/auth_provider.dart' as real_auth;
-import '../../providers/mock/mock_auth_provider.dart';
+import '../../providers/complaint_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/validators.dart';
 import '../../config/theme_config.dart';
-import '../../config/mock_config.dart';
 
 enum MediaType { photo, video }
 
@@ -33,56 +31,65 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
 
-  String _selectedCategory = AppConstants.complaintCategories.first;
+  String _selectedCategory = 'infrastructure';
   String _selectedPriority = 'medium';
-  
-  // Media
-  List<File> _selectedImages = [];
-  List<File> _selectedVideos = [];
-  MediaType _selectedMediaType = MediaType.photo;
-  bool _showMediaOptions = false;
-  
-  // Audio
-  File? _recordedAudio;
+  Position? _currentPosition;
+  bool _isFetchingLocation = false;
+  bool _isLoading = false;
+
+  final List<File> _selectedImages = [];
+  final List<File> _selectedVideos = [];
+  String? _recordedAudio;
+
+  // Recording state
+  final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   bool _isPlaying = false;
-  final AudioRecorder _audioRecorder = AudioRecorder();
-  Duration _recordingDuration = Duration.zero;
-  String? _recordingPath;
-  
-  // Location
-  Position? _currentPosition;
-  bool _isGettingLocation = false;
-  bool _isLoading = false;
+
+  // Pickers
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
-    _checkPermissions();
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _addressController.dispose();
-    _audioRecorder.dispose();
-    super.dispose();
-  }
-
-  Future<void> _checkPermissions() async {
-    await Permission.camera.request();
-    await Permission.microphone.request();
-    await Permission.storage.request();
   }
 
   Future<void> _getCurrentLocation() async {
     setState(() {
-      _isGettingLocation = true;
+      _isFetchingLocation = true;
     });
 
     try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location services are disabled. Please enable them in settings.'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location permissions are denied.'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -90,271 +97,66 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          _isGettingLocation = false;
+          _isFetchingLocation = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isGettingLocation = false;
+          _isFetchingLocation = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to get location: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
       }
     }
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: source,
-      imageQuality: 80,
-      maxWidth: 1024,
-      maxHeight: 1024,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImages.add(File(pickedFile.path));
-        _showMediaOptions = false;
-      });
-    }
-  }
-
-  Future<void> _pickVideo(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickVideo(
-      source: source,
-      maxDuration: const Duration(minutes: 2),
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _selectedVideos.add(File(pickedFile.path));
-        _showMediaOptions = false;
-      });
-    }
-  }
-
-  void _removeImage(int index) {
-    setState(() {
-      _selectedImages.removeAt(index);
-    });
-  }
-
-  void _removeVideo(int index) {
-    setState(() {
-      _selectedVideos.removeAt(index);
-    });
-  }
-
-  Future<void> _startRecording() async {
-    try {
-      if (await _audioRecorder.hasPermission()) {
-        final directory = await getTemporaryDirectory();
-        final path = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        
-        await _audioRecorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.aacLc,
-            bitRate: 128000,
-            sampleRate: 44100,
-          ),
-          path: path,
-        );
-
-        setState(() {
-          _isRecording = true;
-          _recordingPath = path;
-        });
-
-        // Update recording duration periodically
-        Timer.periodic(const Duration(seconds: 1), (timer) async {
-          if (_isRecording && mounted) {
-            setState(() {
-              _recordingDuration = Duration(
-                seconds: _recordingDuration.inSeconds + 1,
-              );
-            });
-          } else {
-            timer.cancel();
-          }
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Microphone permission denied'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to start recording: $e'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-    }
-  }
-
-  Future<void> _stopRecording() async {
-    try {
-      final path = await _audioRecorder.stop();
-      
-      if (path != null) {
-        setState(() {
-          _recordedAudio = File(path);
-          _isRecording = false;
-          _recordingDuration = Duration.zero;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Audio recorded successfully'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to stop recording: $e'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-    }
-  }
-
-  void _deleteAudio() {
-    setState(() {
-      _recordedAudio = null;
-      _recordingPath = null;
-    });
   }
 
   Future<void> _submitComplaint() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_selectedImages.isEmpty && _selectedVideos.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add at least one photo or video'),
-          backgroundColor: AppTheme.warningColor,
-        ),
-      );
-      return;
-    }
-
-    if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enable location services'),
-          backgroundColor: AppTheme.warningColor,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
 
     try {
-      if (MockConfig.isMockMode) {
-        final authProvider = context.read<MockAuthProvider>();
-        final complaintProvider = context.read<MockComplaintProvider>();
+      final authProvider = context.read<AuthProvider>();
+      final complaintProvider = context.read<ComplaintProvider>();
 
-        if (authProvider.currentUser == null) {
-          throw Exception('User not authenticated');
-        }
+      if (authProvider.currentUser == null) {
+        throw Exception('User not authenticated');
+      }
 
-        // TODO: Upload images/videos to S3 and get URLs
-        final photoUrls = <String>[];
-        final videoUrls = <String>[];
+      // TODO: Upload images/videos to S3 and get URLs
+      final photoUrls = <String>[];
+      final videoUrls = <String>[];
 
-        // Combine photo and video URLs
-        final allMediaUrls = [...photoUrls, ...videoUrls];
+      // Combine photo and video URLs
+      final allMediaUrls = [...photoUrls, ...videoUrls];
 
-        // Get audio URL if recorded
-        String? audioUrl;
-        if (_recordedAudio != null) {
-          // TODO: Upload audio to S3
-          audioUrl = 'mock-audio-url';
-        }
+      // Get audio URL if recorded
+      String? audioUrl;
+      if (_recordedAudio != null) {
+        // TODO: Upload audio to S3
+        audioUrl = 'mock-audio-url';
+      }
 
-        // Create complaint
-        await complaintProvider.createComplaint(
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim(),
-          category: _selectedCategory,
-          priority: _selectedPriority,
-          photoUrls: allMediaUrls,
-          location: _currentPosition!,
-          address: _addressController.text.trim().isEmpty
-              ? null
-              : _addressController.text.trim(),
+      // Create complaint
+      await complaintProvider.createComplaint(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        category: _selectedCategory,
+        priority: _selectedPriority,
+        photoUrls: allMediaUrls,
+        location: _currentPosition!,
+        address: _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(AppConstants.successMessageComplaintFiled),
+            backgroundColor: AppTheme.successColor,
+          ),
         );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(AppConstants.successMessageComplaintFiled),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-          Navigator.of(context).pop(true);
-        }
-      } else {
-        final authProvider = context.read<real_auth.AuthProvider>();
-        final complaintProvider = context.read<real_complaint.ComplaintProvider>();
-
-        if (authProvider.currentUser == null) {
-          throw Exception('User not authenticated');
-        }
-
-        // TODO: Upload images/videos to S3 and get URLs
-        final photoUrls = <String>[];
-        final videoUrls = <String>[];
-
-        // Combine photo and video URLs
-        final allMediaUrls = [...photoUrls, ...videoUrls];
-
-        // Get audio URL if recorded
-        String? audioUrl;
-        if (_recordedAudio != null) {
-          // TODO: Upload audio to S3
-          audioUrl = 'mock-audio-url';
-        }
-
-        // Create complaint
-        await complaintProvider.createComplaint(
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim(),
-          category: _selectedCategory,
-          priority: _selectedPriority,
-          photoUrls: allMediaUrls,
-          location: _currentPosition!,
-          address: _addressController.text.trim().isEmpty
-              ? null
-              : _addressController.text.trim(),
-        );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(AppConstants.successMessageComplaintFiled),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-          Navigator.of(context).pop(true);
-        }
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -425,15 +227,29 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Title *',
-                  hintText: 'Brief description of the issue',
+                  hintText: 'Brief description of issue',
                   prefixIcon: Icon(Icons.title),
                 ),
                 validator: AppValidators.validateTitle,
               ),
               const SizedBox(height: 16),
 
-              // Description (Text or Audio)
-              _buildDescriptionSection(),
+              // Description
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Description *',
+                  hintText: 'Provide details about issue',
+                  prefixIcon: Icon(Icons.description),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a description';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 16),
 
               // Address (Optional)
@@ -441,13 +257,13 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
                 controller: _addressController,
                 decoration: const InputDecoration(
                   labelText: 'Address (Optional)',
-                  hintText: 'Enter the exact location',
+                  hintText: 'Enter exact location',
                   prefixIcon: Icon(Icons.location_on),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Media Upload (Photo or Video)
+              // Media Upload
               _buildMediaUploadSection(),
               const SizedBox(height: 24),
 
@@ -511,7 +327,7 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _isGettingLocation ? 'Getting location...' : 'Location',
+                    _isFetchingLocation ? 'Getting location...' : 'Location',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.grey,
@@ -634,437 +450,94 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
     );
   }
 
-  Widget _buildDescriptionSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Description *',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        
-        // Tab bar for Text/Audio
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    // Text input is already visible
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.edit, size: 16, color: AppTheme.primaryColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Text',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    _showAudioOption();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.mic, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Audio',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Text input
-        TextFormField(
-          controller: _descriptionController,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            hintText: 'Provide details about the issue',
-            prefixIcon: Icon(Icons.description),
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              if (_recordedAudio == null) {
-                return 'Please enter text or record audio';
-              }
-            }
-            return null;
-          },
-        ),
-
-        // Audio recording section
-        if (_recordedAudio != null || _isRecording)
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue[200]!),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      _isRecording ? Icons.mic : Icons.mic_none,
-                      color: _isRecording ? Colors.red : Colors.blue,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isRecording
-                          ? 'Recording... ${_formatDuration(_recordingDuration)}'
-                          : 'Audio Recorded',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: _isRecording ? Colors.red : Colors.blue,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (!_isRecording)
-                      IconButton(
-                        icon: const Icon(Icons.delete, size: 20),
-                        onPressed: _deleteAudio,
-                        color: Colors.red,
-                      ),
-                  ],
-                ),
-                if (_isRecording)
-                  const SizedBox(height: 8),
-                if (_isRecording)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _stopRecording,
-                          icon: const Icon(Icons.stop, size: 18),
-                          label: const Text('Stop Recording'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  void _showAudioOption() {
-    if (_recordedAudio == null && !_isRecording) {
-      showModalBottomSheet(
-        context: context,
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Record Audio Description',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.mic),
-                title: const Text('Start Recording'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _startRecording();
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-
   Widget _buildMediaUploadSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Media (Photo or Video) *',
+          'Media (Photo) *',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
-
-        // Media type selector
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedMediaType = MediaType.photo;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _selectedMediaType == MediaType.photo
-                          ? Colors.white
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.photo_library,
-                          size: 16,
-                          color: _selectedMediaType == MediaType.photo
-                              ? AppTheme.primaryColor
-                              : Colors.grey[600],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Photo',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _selectedMediaType == MediaType.photo
-                                ? AppTheme.primaryColor
-                                : Colors.grey[600],
-                            fontWeight: _selectedMediaType == MediaType.photo
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedMediaType = MediaType.video;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _selectedMediaType == MediaType.video
-                          ? Colors.white
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.videocam,
-                          size: 16,
-                          color: _selectedMediaType == MediaType.video
-                              ? AppTheme.primaryColor
-                              : Colors.grey[600],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Video',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _selectedMediaType == MediaType.video
-                                ? AppTheme.primaryColor
-                                : Colors.grey[600],
-                            fontWeight: _selectedMediaType == MediaType.video
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Display selected media
-        if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
-          _buildMediaGrid()
+        if (_selectedImages.isEmpty)
+          _buildMediaUploadButton()
         else
-          _buildMediaUploadButton(),
-      ],
-    );
-  }
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectedImages.length + 1,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                if (index == _selectedImages.length) {
+                  return _buildMediaUploadButton(isMini: true);
+                }
 
-  Widget _buildMediaGrid() {
-    final totalMediaCount = _selectedImages.length + _selectedVideos.length;
-
-    return SizedBox(
-      height: 200,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: totalMediaCount + 1,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          if (index == totalMediaCount) {
-            // Add more button
-            return _buildMediaUploadButton(isMini: true);
-          }
-
-          // Determine if it's an image or video
-          bool isImage = index < _selectedImages.length;
-          final media = isImage
-              ? _selectedImages[index]
-              : _selectedVideos[index - _selectedImages.length];
-
-          return Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: isImage
-                    ? Image.file(
-                        media,
+                return Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _selectedImages[index],
                         width: 120,
-                        height: 200,
+                        height: 120,
                         fit: BoxFit.cover,
-                      )
-                    : Container(
-                        width: 120,
-                        height: 200,
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: Icon(Icons.videocam, size: 48, color: Colors.grey),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedImages.removeAt(index);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: GestureDetector(
-                  onTap: () {
-                    if (isImage) {
-                      _removeImage(index);
-                    } else {
-                      _removeVideo(index - _selectedImages.length);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 4,
-                left: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isImage ? Icons.image : Icons.videocam,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isImage ? 'Photo' : 'Video',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildMediaUploadButton({bool isMini = false}) {
     return InkWell(
-      onTap: () {
-        setState(() {
-          _showMediaOptions = !_showMediaOptions;
-        });
+      onTap: () async {
+        final picker = ImagePicker();
+        final pickedFile = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+        );
+
+        if (pickedFile != null) {
+          setState(() {
+            _selectedImages.add(File(pickedFile.path));
+          });
+        }
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: isMini ? 120 : double.infinity,
-        height: isMini ? 200 : 150,
+        height: isMini ? 120 : 150,
         decoration: BoxDecoration(
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
@@ -1074,140 +547,22 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
             style: BorderStyle.solid,
           ),
         ),
-        child: _showMediaOptions
-            ? _buildMediaOptions(isMini)
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _selectedMediaType == MediaType.photo
-                        ? Icons.add_photo_alternate
-                        : Icons.add_circle,
-                    size: isMini ? 32 : 48,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isMini ? 'Add More' : 'Add ${_selectedMediaType == MediaType.photo ? 'Photos' : 'Videos'}',
-                    style: TextStyle(
-                      fontSize: isMini ? 12 : 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap for options',
-                    style: TextStyle(
-                      fontSize: isMini ? 10 : 12,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildMediaOptions(bool isMini) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        InkWell(
-          onTap: () {
-            setState(() {
-              _showMediaOptions = false;
-            });
-            _showSourceDialog('camera');
-          },
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.camera_alt,
-                  size: isMini ? 28 : 32,
-                  color: AppTheme.primaryColor,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Camera',
-                  style: TextStyle(
-                    fontSize: isMini ? 11 : 12,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () {
-            setState(() {
-              _showMediaOptions = false;
-            });
-            _showSourceDialog('gallery');
-          },
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.photo_library,
-                  size: isMini ? 28 : 32,
-                  color: AppTheme.primaryColor,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Gallery',
-                  style: TextStyle(
-                    fontSize: isMini ? 11 : 12,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showSourceDialog(String defaultSource) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ListTile(
-              leading: Icon(
-                _selectedMediaType == MediaType.photo ? Icons.camera_alt : Icons.videocam,
-              ),
-              title: Text(_selectedMediaType == MediaType.photo
-                  ? 'Take ${_selectedMediaType == MediaType.photo ? 'Photo' : 'Video'}'
-                  : 'Record Video'),
-              onTap: () {
-                Navigator.pop(context);
-                if (_selectedMediaType == MediaType.photo) {
-                  _pickImage(ImageSource.camera);
-                } else {
-                  _pickVideo(ImageSource.camera);
-                }
-              },
+            Icon(
+              Icons.add_photo_alternate,
+              size: isMini ? 32 : 48,
+              color: Colors.grey[600],
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                if (_selectedMediaType == MediaType.photo) {
-                  _pickImage(ImageSource.gallery);
-                } else {
-                  _pickVideo(ImageSource.gallery);
-                }
-              },
+            const SizedBox(height: 8),
+            Text(
+              isMini ? 'Add More' : 'Add Photos',
+              style: TextStyle(
+                fontSize: isMini ? 12 : 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -1215,27 +570,7 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes);
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
-  }
-
   String _getPriorityLabel(String priority) {
     return AppHelpers.getPriorityLabel(priority);
-  }
-
-  int _convertPriorityToInt(String priority) {
-    switch (priority) {
-      case 'low':
-        return 1;
-      case 'medium':
-        return 3;
-      case 'high':
-        return 5;
-      default:
-        return 3;
-    }
   }
 }

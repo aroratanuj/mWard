@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/notification.dart' as model;
-import '../providers/notification_provider.dart' as real;
-import '../providers/mock/mock_notification_provider.dart';
+import '../providers/notification_provider.dart';
 import '../config/theme_config.dart';
-import '../config/mock_config.dart';
+import '../utils/helpers.dart';
 
 class NotificationListScreen extends StatefulWidget {
   const NotificationListScreen({super.key});
@@ -18,49 +17,29 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   @override
   void initState() {
     super.initState();
-    // Load notifications on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadNotifications();
     });
   }
 
   Future<void> _loadNotifications() async {
-    if (MockConfig.isMockMode) {
-      final notificationProvider = context.read<MockNotificationProvider>();
-      // TODO: Get actual userId from auth provider
-      await notificationProvider.loadUserNotifications('user-id-placeholder');
-    } else {
-      final notificationProvider = context.read<real.NotificationProvider>();
-      // TODO: Get actual userId from auth provider
-      await notificationProvider.loadUserNotifications('user-id-placeholder');
-    }
+    final notificationProvider = context.read<NotificationProvider>();
+    // TODO: Get actual userId from auth provider
+    await notificationProvider.loadUserNotifications('user-id-placeholder');
   }
 
   @override
   Widget build(BuildContext context) {
-    if (MockConfig.isMockMode) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Notifications'),
-        ),
-        body: Consumer<MockNotificationProvider>(
-          builder: (context, notificationProvider, child) {
-            return _buildContent(notificationProvider);
-          },
-        ),
-      );
-    } else {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Notifications'),
-        ),
-        body: Consumer<real.NotificationProvider>(
-          builder: (context, notificationProvider, child) {
-            return _buildContent(notificationProvider);
-          },
-        ),
-      );
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notifications'),
+      ),
+      body: Consumer<NotificationProvider>(
+        builder: (context, notificationProvider, child) {
+          return _buildContent(notificationProvider);
+        },
+      ),
+    );
   }
 
   Widget _buildContent(dynamic notificationProvider) {
@@ -166,95 +145,80 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         child: Icon(
           _getNotificationIcon(notification.type),
           color: _getNotificationColor(notification.type),
+          size: 24,
         ),
       ),
-      title: Row(
+      title: Text(
+        notification.title,
+        style: TextStyle(
+          fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
+          color: notification.isRead ? Colors.grey[600] : Colors.black,
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              notification.title,
-              style: TextStyle(
-                fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
-                color: notification.isRead ? Colors.grey[700] : Colors.black87,
-              ),
+          Text(
+            notification.message,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            timeago.format(notification.createdAt),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[500],
             ),
           ),
-          if (!notification.isRead)
-            Container(
-              width: 8,
-              height: 8,
+        ],
+      ),
+      trailing: notification.isRead
+          ? null
+          : Container(
+              width: 10,
+              height: 10,
               decoration: const BoxDecoration(
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),
             ),
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 4),
-          Text(
-            notification.message,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                Icons.schedule,
-                size: 12,
-                color: Colors.grey[600],
-              ),
-              const SizedBox(width: 4),
-              Text(
-                timeago.format(notification.createdAt),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              if (notification.isBroadcast) ...[
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Broadcast',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-      trailing: notification.isHighPriority
-          ? Icon(
-              Icons.priority_high,
-              color: AppTheme.warningColor,
-              size: 20,
-            )
-          : null,
       onTap: () {
         // Mark as read and show details
-        if (MockConfig.isMockMode) {
-          context.read<MockNotificationProvider>().markAsRead(notification.notificationId, 'user-id-placeholder');
-        } else {
-          context.read<real.NotificationProvider>().markAsRead(notification.notificationId, 'user-id-placeholder');
-        }
+        context.read<NotificationProvider>().markAsRead(notification.notificationId, 'user-id-placeholder');
         _showNotificationDetails(notification);
       },
     );
+  }
+
+  Color _getNotificationColor(String type) {
+    switch (type) {
+      case 'alert':
+        return Colors.red;
+      case 'news':
+        return Colors.blue;
+      case 'update':
+        return Colors.green;
+      case 'broadcast':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getNotificationIcon(String type) {
+    switch (type) {
+      case 'alert':
+        return Icons.warning_amber_rounded;
+      case 'news':
+        return Icons.article_rounded;
+      case 'update':
+        return Icons.update_rounded;
+      case 'broadcast':
+        return Icons.campaign_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
   }
 
   void _showNotificationDetails(model.Notification notification) {
@@ -267,90 +231,60 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               _getNotificationIcon(notification.type),
               color: _getNotificationColor(notification.type),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 notification.title,
-                style: const TextStyle(fontSize: 18),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (notification.imageUrl != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    notification.imageUrl!,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 150,
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.broken_image, size: 48),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notification.message),
+            const SizedBox(height: 16),
+            Text(
+              'Sent: ${AppHelpers.formatDateTime(notification.createdAt)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            if (notification.creatorName != null) ...[
+              const SizedBox(height: 8),
               Text(
-                notification.message,
-                style: const TextStyle(fontSize: 16),
+                'By: ${notification.creatorName}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
               ),
-              const SizedBox(height: 16),
-              _buildInfoRow(
-                Icons.schedule,
-                'Posted: ${_formatDate(notification.createdAt)}',
-              ),
-              if (notification.creatorName != null)
-                _buildInfoRow(
-                  Icons.person_outline,
-                  'By: ${notification.creatorName}',
-                ),
-              if (notification.expiryDate != null)
-                _buildInfoRow(
-                  Icons.event,
-                  'Expires: ${_formatDate(notification.expiryDate!)}',
-                ),
-              if (notification.isBroadcast) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.broadcast_on_personal,
-                        size: 16,
-                        color: AppTheme.primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Broadcast to all wards',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
-          ),
+            if (notification.imageUrl != null) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  notification.imageUrl!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 150,
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.broken_image, size: 48),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
@@ -360,64 +294,5 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: Colors.grey[600],
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getNotificationIcon(String type) {
-    switch (type) {
-      case 'news':
-        return Icons.newspaper;
-      case 'alert':
-        return Icons.warning_amber_rounded;
-      case 'update':
-        return Icons.update;
-      case 'broadcast':
-        return Icons.broadcast_on_personal;
-      default:
-        return Icons.notifications;
-    }
-  }
-
-  Color _getNotificationColor(String type) {
-    switch (type) {
-      case 'news':
-        return AppTheme.infoColor;
-      case 'alert':
-        return AppTheme.warningColor;
-      case 'update':
-        return AppTheme.successColor;
-      case 'broadcast':
-        return AppTheme.primaryColor;
-      default:
-        return AppTheme.primaryColor;
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/complaint.dart';
 import '../../mock_data/mock_complaints.dart';
 import '../../config/mock_config.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
-import '../hive_service.dart';
+import '../../services/hive_service.dart';
+import '../complaint_service.dart';
 
-class MockComplaintService {
+class MockComplaintService implements ComplaintService {
   // Simulate network delay
   Future<void> _simulateDelay() async {
     await Future.delayed(const Duration(milliseconds: MockConfig.mockApiDelay));
@@ -50,9 +52,9 @@ class MockComplaintService {
   }
 
   // Get complaint by ID
-  Future<Complaint?> getComplaintById(String complaintId) async {
+  Future<Complaint> getComplaintById(String complaintId) async {
     await _simulateDelay();
-    
+
     // Try to get from Hive first
     if (MockConfig.persistData) {
       final hiveComplaint = HiveService.getComplaint(complaintId);
@@ -60,9 +62,13 @@ class MockComplaintService {
         return Complaint.fromJson(hiveComplaint);
       }
     }
-    
+
     // Return sample data
-    return MockComplaints.getComplaintById(complaintId);
+    final complaint = MockComplaints.getComplaintById(complaintId);
+    if (complaint == null) {
+      throw Exception('Complaint not found');
+    }
+    return complaint;
   }
 
   // Create complaint
@@ -144,26 +150,10 @@ class MockComplaintService {
   }
 
   // Add comment to complaint
-  Future<void> addComment(
-    String complaintId,
-    String text,
-    String userId,
-    String userName,
-  ) async {
+  Future<void> addComment(String complaintId, Comment comment) async {
     await _simulateDelay();
 
     final complaint = await getComplaintById(complaintId);
-    if (complaint == null) {
-      throw Exception('Complaint not found');
-    }
-
-    final comment = Comment(
-      commentId: 'cmt-${DateTime.now().millisecondsSinceEpoch}',
-      userId: userId,
-      userName: userName,
-      text: text,
-      createdAt: DateTime.now(),
-    );
 
     final updatedComments = [...complaint.comments, comment];
     await HiveService.updateComplaint(complaintId, {'comments': updatedComments.map((c) => c.toJson()).toList()});
@@ -211,17 +201,18 @@ class MockComplaintService {
   }
 
   // Get complaint statistics
-  Future<Map<String, int>> getComplaintStatistics() async {
+  @override
+  Future<Map<String, int>> getComplaintStats(String userId) async {
     await _simulateDelay();
 
-    final allComplaints = await getAllComplaints();
+    final userComplaints = await getUserComplaints(userId);
 
     return {
-      'total': allComplaints.length,
-      'pending': allComplaints.where((c) => c.status == 'pending').length,
-      'inProgress': allComplaints.where((c) => c.status == 'in-progress').length,
-      'resolved': allComplaints.where((c) => c.status == 'resolved').length,
-      'rejected': allComplaints.where((c) => c.status == 'rejected').length,
+      'total': userComplaints.length,
+      'pending': userComplaints.where((c) => c.status == 'pending').length,
+      'in_progress': userComplaints.where((c) => c.status == 'in-progress').length,
+      'resolved': userComplaints.where((c) => c.status == 'resolved').length,
+      'rejected': userComplaints.where((c) => c.status == 'rejected').length,
     };
   }
 

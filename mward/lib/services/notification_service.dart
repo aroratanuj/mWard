@@ -2,9 +2,21 @@ import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_api/amplify_api.dart';
 import 'dart:convert';
 import '../models/notification.dart';
+import 'notification_service_interface.dart';
 
-class NotificationService {
+class AmplifyNotificationService implements NotificationService {
   static const String _notificationsTable = 'notifications';
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  bool get isLoading => _isLoading;
+
+  @override
+  String? get error => _error;
+
+  @override
+  bool get hasError => _error != null;
 
   // Get all notifications for user
   Future<List<Notification>> getUserNotifications(String userId) async {
@@ -321,5 +333,11 @@ class NotificationService {
     );
 
     return await createNotification(notification);
+  }
+
+  @override
+  Future<void> resetNotifications() async {
+    // No-op for real service - notifications are in the backend
+    _error = null;
   }
 }

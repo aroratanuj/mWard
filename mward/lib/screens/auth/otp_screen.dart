@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart' as real;
-import '../../providers/mock/mock_auth_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
-import '../../utils/validators.dart';
 import '../../config/theme_config.dart';
-import '../../config/mock_config.dart';
 import '../home_screen.dart';
 
 class OTPScreen extends StatefulWidget {
@@ -56,14 +53,9 @@ class _OTPScreenState extends State<OTPScreen> {
 
     try {
       final otp = _otpControllers.map((c) => c.text).join();
+      final authProvider = context.read<AuthProvider>();
 
-      if (MockConfig.isMockMode) {
-        final mockAuthProvider = context.read<MockAuthProvider>();
-        await mockAuthProvider.verifyOTP(widget.phoneNumber, otp);
-      } else {
-        final authProvider = context.read<real.AuthProvider>();
-        await authProvider.verifyOTP(widget.phoneNumber, otp);
-      }
+      await authProvider.verifyOTP(widget.phoneNumber, otp);
 
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -100,13 +92,8 @@ class _OTPScreenState extends State<OTPScreen> {
     });
 
     try {
-      if (MockConfig.isMockMode) {
-        final mockAuthProvider = context.read<MockAuthProvider>();
-        await mockAuthProvider.sendOTP(widget.phoneNumber);
-      } else {
-        final authProvider = context.read<real.AuthProvider>();
-        await authProvider.sendOTP(widget.phoneNumber);
-      }
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.sendOTP(widget.phoneNumber);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,7 +147,6 @@ class _OTPScreenState extends State<OTPScreen> {
             children: [
               const SizedBox(height: 40),
 
-              // Icon
               Container(
                 width: 80,
                 height: 80,
@@ -176,7 +162,6 @@ class _OTPScreenState extends State<OTPScreen> {
                 ),
               ),
 
-              // Title
               const Text(
                 'Verify OTP',
                 style: TextStyle(
@@ -188,7 +173,6 @@ class _OTPScreenState extends State<OTPScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Subtitle
               Text(
                 'Enter the 6-digit code sent to\n${widget.phoneNumber}',
                 style: TextStyle(
@@ -199,7 +183,6 @@ class _OTPScreenState extends State<OTPScreen> {
               ),
               const SizedBox(height: 40),
 
-              // OTP Input Fields
               Form(
                 key: _formKey,
                 child: Row(
@@ -251,7 +234,6 @@ class _OTPScreenState extends State<OTPScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Verify Button
               ElevatedButton(
                 onPressed: _isVerifying ? null : _verifyOTP,
                 style: ElevatedButton.styleFrom(
@@ -279,7 +261,6 @@ class _OTPScreenState extends State<OTPScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Resend OTP
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -305,7 +286,6 @@ class _OTPScreenState extends State<OTPScreen> {
                 ],
               ),
 
-              // Demo OTP hint (for testing)
               Container(
                 margin: const EdgeInsets.only(top: 24),
                 padding: const EdgeInsets.all(12),

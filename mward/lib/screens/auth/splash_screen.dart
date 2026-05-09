@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart' as local;
-import '../../providers/mock/mock_auth_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../config/theme_config.dart';
-import '../../config/mock_config.dart';
 import '../../utils/constants.dart';
 import '../home_screen.dart';
 import 'login_screen.dart';
@@ -52,48 +50,22 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Wait for the first frame to complete before accessing providers
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        if (MockConfig.isMockMode) {
-          final mockAuthProvider = context.read<MockAuthProvider>();
+        final authProvider = context.read<AuthProvider>();
 
-          // Simulate splash screen delay for animations
-          await Future.delayed(const Duration(milliseconds: 2000));
+        await Future.delayed(const Duration(milliseconds: 2000));
+        await authProvider.checkAuthStatus();
 
-          // Check if user is authenticated
-          await mockAuthProvider.checkAuthStatus();
-
-          if (mounted) {
-            if (mockAuthProvider.isAuthenticated) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
-            } else {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            }
-          }
-        } else {
-          final authProvider = context.read<local.AuthProvider>();
-
-          // Simulate splash screen delay for animations
-          await Future.delayed(const Duration(milliseconds: 2000));
-
-          // Check if user is authenticated
-          await authProvider.checkAuthStatus();
-
-          if (mounted) {
-            if (authProvider.isAuthenticated) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
-            } else {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            }
+        if (mounted) {
+          if (authProvider.isAuthenticated) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
           }
         }
       } catch (e) {
@@ -128,8 +100,8 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         child: Center(
-          child: AnimatedBuilder(
-            animation: _animationController,
+          child: ListenableBuilder(
+            listenable: _animationController,
             builder: (context, child) {
               return FadeTransition(
                 opacity: _fadeAnimation,
@@ -138,7 +110,6 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // App Logo/Icon
                       Container(
                         width: 120,
                         height: 120,
@@ -161,7 +132,6 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       const SizedBox(height: 30),
 
-                      // App Name
                       Text(
                         AppConstants.appName,
                         style: const TextStyle(
@@ -173,7 +143,6 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       const SizedBox(height: 10),
 
-                      // App Tagline
                       Text(
                         'Ward Issue Reporting',
                         style: TextStyle(
@@ -184,14 +153,12 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       const SizedBox(height: 50),
 
-                      // Loading Indicator
                       const CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         strokeWidth: 3,
                       ),
                       const SizedBox(height: 20),
 
-                      // Loading Text
                       Text(
                         'Loading...',
                         style: TextStyle(

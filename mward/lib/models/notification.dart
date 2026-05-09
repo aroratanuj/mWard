@@ -47,4 +47,38 @@ class Notification {
   bool get isBroadcast => wardCode == null;
 
   bool get isHighPriority => priority >= 4;
+
+  Notification copyWith({
+    String? notificationId,
+    String? title,
+    String? message,
+    String? messageHindi,
+    String? type,
+    String? imageUrl,
+    String? wardCode,
+    String? createdBy,
+    String? creatorName,
+    DateTime? createdAt,
+    DateTime? expiryDate,
+    bool? isRead,
+    String? targetAudience,
+    int? priority,
+  }) {
+    return Notification(
+      notificationId: notificationId ?? this.notificationId,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      messageHindi: messageHindi ?? this.messageHindi,
+      type: type ?? this.type,
+      imageUrl: imageUrl ?? this.imageUrl,
+      wardCode: wardCode ?? this.wardCode,
+      createdBy: createdBy ?? this.createdBy,
+      creatorName: creatorName ?? this.creatorName,
+      createdAt: createdAt ?? this.createdAt,
+      expiryDate: expiryDate ?? this.expiryDate,
+      isRead: isRead ?? this.isRead,
+      targetAudience: targetAudience ?? this.targetAudience,
+      priority: priority ?? this.priority,
+    );
+  }
 }
