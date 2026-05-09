@@ -6,6 +6,7 @@ import 'package:amplify_api/amplify_api.dart';
 import 'package:amplify_storage_s3/amplify_storage_s3.dart';
 import 'package:amplify_analytics_pinpoint/amplify_analytics_pinpoint.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 
 import 'config/theme_config.dart';
 import 'config/mock_config.dart';
@@ -80,7 +81,7 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  List<ChangeNotifierProvider> _getProviders() {
+  List<SingleChildWidget> _getProviders() {
     final AuthService authService;
     final ComplaintService complaintService;
     final NotificationService notificationService;
