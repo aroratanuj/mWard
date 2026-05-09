@@ -52,34 +52,37 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    try {
-      final authProvider = context.read<local.AuthProvider>();
+    // Wait for the first frame to complete before accessing providers
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final authProvider = context.read<local.AuthProvider>();
 
-      // Simulate splash screen delay for animations
-      await Future.delayed(const Duration(milliseconds: 2000));
+        // Simulate splash screen delay for animations
+        await Future.delayed(const Duration(milliseconds: 2000));
 
-      // Check if user is authenticated
-      await authProvider.checkAuthStatus();
+        // Check if user is authenticated
+        await authProvider.checkAuthStatus();
 
-      if (mounted) {
-        if (authProvider.isAuthenticated) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        } else {
+        if (mounted) {
+          if (authProvider.isAuthenticated) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error checking auth: $e');
+        if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const LoginScreen()),
           );
         }
       }
-    } catch (e) {
-      debugPrint('Error checking auth: $e');
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
-      }
-    }
+    });
   }
 
   @override

@@ -98,8 +98,13 @@ class MyApp extends StatelessWidget {
   List<ChangeNotifierProvider> _getProviders() {
     if (MockConfig.isMockMode) {
       debugPrint('Mock Mode: Using mock providers');
+      
+      // Create and initialize mock auth provider
+      final mockAuthProvider = MockAuthProvider();
+      mockAuthProvider.init(); // Initialize to check for existing auth state
+      
       return [
-        ChangeNotifierProvider(create: (_) => MockAuthProvider()),
+        ChangeNotifierProvider.value(value: mockAuthProvider),
         ChangeNotifierProvider(create: (_) => MockComplaintProvider()),
         ChangeNotifierProvider(create: (_) => MockNotificationProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
