@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/complaint_provider.dart';
+import '../../../providers/complaint_provider.dart' as real_complaint;
+import '../../../providers/mock/mock_complaint_provider.dart';
 import '../../../providers/auth_provider.dart' as local;
+import '../../../providers/mock/mock_auth_provider.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/helpers.dart';
 import '../../../config/theme_config.dart';
+import '../../../config/mock_config.dart';
 import '../../complaint/complaint_details_screen.dart';
 
 class HistoryTab extends StatefulWidget {
@@ -25,19 +28,37 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 
   Future<void> _loadComplaints() async {
-    final authProvider = context.read<local.AuthProvider>();
-    final complaintProvider = context.read<ComplaintProvider>();
+    if (MockConfig.isMockMode) {
+      final authProvider = context.read<MockAuthProvider>();
+      final complaintProvider = context.read<MockComplaintProvider>();
 
-    if (authProvider.currentUser != null) {
-      await complaintProvider.loadUserComplaints(
-        authProvider.currentUser!.userId,
-      );
+      if (authProvider.currentUser != null) {
+        await complaintProvider.loadUserComplaints(
+          authProvider.currentUser!.userId,
+        );
+      }
+    } else {
+      final authProvider = context.read<local.AuthProvider>();
+      final complaintProvider = context.read<real_complaint.ComplaintProvider>();
+
+      if (authProvider.currentUser != null) {
+        await complaintProvider.loadUserComplaints(
+          authProvider.currentUser!.userId,
+        );
+      }
     }
   }
 
   List<dynamic> _getFilteredComplaints() {
-    final complaintProvider = context.read<ComplaintProvider>();
-    final allComplaints = complaintProvider.userComplaints;
+    List<dynamic> allComplaints;
+
+    if (MockConfig.isMockMode) {
+      final complaintProvider = context.read<MockComplaintProvider>();
+      allComplaints = complaintProvider.userComplaints;
+    } else {
+      final complaintProvider = context.read<real_complaint.ComplaintProvider>();
+      allComplaints = complaintProvider.userComplaints;
+    }
 
     if (_selectedFilter == 'all') {
       return allComplaints;
@@ -48,98 +69,110 @@ class _HistoryTabState extends State<HistoryTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ComplaintProvider>(
-      builder: (context, complaintProvider, child) {
-        final filteredComplaints = _getFilteredComplaints();
+    if (MockConfig.isMockMode) {
+      return Consumer<MockComplaintProvider>(
+        builder: (context, complaintProvider, child) {
+          final filteredComplaints = _getFilteredComplaints();
+          return _buildContent(filteredComplaints, complaintProvider.isLoading);
+        },
+      );
+    } else {
+      return Consumer<real_complaint.ComplaintProvider>(
+        builder: (context, complaintProvider, child) {
+          final filteredComplaints = _getFilteredComplaints();
+          return _buildContent(filteredComplaints, complaintProvider.isLoading);
+        },
+      );
+    }
+  }
 
-        return Column(
-          children: [
-            // Filter Chips
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: _filters.map((filter) {
-                    final isSelected = _selectedFilter == filter;
-                    final label = filter == 'all'
-                        ? 'All'
-                        : AppHelpers.getStatusLabel(filter);
+  Widget _buildContent(List<dynamic> filteredComplaints, bool isLoading) {
+    return Column(
+      children: [
+        // Filter Chips
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: _filters.map((filter) {
+                final isSelected = _selectedFilter == filter;
+                final label = filter == 'all'
+                    ? 'All'
+                    : AppHelpers.getStatusLabel(filter);
 
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(label),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedFilter = filter;
-                          });
-                        },
-                        selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-                        checkmarkColor: AppTheme.primaryColor,
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(label),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedFilter = filter;
+                      });
+                    },
+                    selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+                    checkmarkColor: AppTheme.primaryColor,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+
+        // Complaint List
+        Expanded(
+          child: isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+              : filteredComplaints.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.history,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No complaints found',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _selectedFilter == 'all'
+                                ? 'You haven\'t filed any complaints yet'
+                                : 'No ${AppHelpers.getStatusLabel(_selectedFilter).toLowerCase()} complaints',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-
-            // Complaint List
-            Expanded(
-              child: complaintProvider.isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(),
                     )
-                  : filteredComplaints.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.history,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No complaints found',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _selectedFilter == 'all'
-                                    ? 'You haven\'t filed any complaints yet'
-                                    : 'No ${AppHelpers.getStatusLabel(_selectedFilter).toLowerCase()} complaints',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[500],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadComplaints,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: filteredComplaints.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final complaint = filteredComplaints[index];
-                              return _buildComplaintCard(complaint);
-                            },
-                          ),
-                        ),
-            ),
-          ],
-        );
-      },
+                  : RefreshIndicator(
+                      onRefresh: _loadComplaints,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredComplaints.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final complaint = filteredComplaints[index];
+                          return _buildComplaintCard(complaint);
+                        },
+                      ),
+                    ),
+        ),
+      ],
     );
   }
 

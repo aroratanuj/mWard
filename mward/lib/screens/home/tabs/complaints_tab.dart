@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../../providers/complaint_provider.dart';
+import '../../../providers/complaint_provider.dart' as real_complaint;
+import '../../../providers/mock/mock_complaint_provider.dart';
 import '../../../providers/auth_provider.dart' as local;
+import '../../../providers/mock/mock_auth_provider.dart';
 import '../../../models/complaint.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/helpers.dart';
 import '../../../config/theme_config.dart';
+import '../../../config/mock_config.dart';
 import '../../complaint/complaint_details_screen.dart';
 
 class ComplaintsTab extends StatefulWidget {
@@ -24,72 +27,95 @@ class _ComplaintsTabState extends State<ComplaintsTab> {
   }
 
   Future<void> _loadComplaints() async {
-    final authProvider = context.read<local.AuthProvider>();
-    final complaintProvider = context.read<ComplaintProvider>();
+    if (MockConfig.isMockMode) {
+      final authProvider = context.read<MockAuthProvider>();
+      final complaintProvider = context.read<MockComplaintProvider>();
 
-    if (authProvider.currentUser != null) {
-      await complaintProvider.loadUserComplaints(
-        authProvider.currentUser!.userId,
-      );
+      if (authProvider.currentUser != null) {
+        await complaintProvider.loadUserComplaints(
+          authProvider.currentUser!.userId,
+        );
+      }
+    } else {
+      final authProvider = context.read<local.AuthProvider>();
+      final complaintProvider = context.read<real_complaint.ComplaintProvider>();
+
+      if (authProvider.currentUser != null) {
+        await complaintProvider.loadUserComplaints(
+          authProvider.currentUser!.userId,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ComplaintProvider>(
-      builder: (context, complaintProvider, child) {
-        final complaints = complaintProvider.userComplaints;
+    if (MockConfig.isMockMode) {
+      return Consumer<MockComplaintProvider>(
+        builder: (context, complaintProvider, child) {
+          final complaints = complaintProvider.userComplaints;
+          return _buildContent(complaints, complaintProvider.isLoading);
+        },
+      );
+    } else {
+      return Consumer<real_complaint.ComplaintProvider>(
+        builder: (context, complaintProvider, child) {
+          final complaints = complaintProvider.userComplaints;
+          return _buildContent(complaints, complaintProvider.isLoading);
+        },
+      );
+    }
+  }
 
-        if (complaintProvider.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+  Widget _buildContent(List<dynamic> complaints, bool isLoading) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-        if (complaints.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.assignment_outlined,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No complaints yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tap the + button to file your first complaint',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
+    if (complaints.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.assignment_outlined,
+              size: 64,
+              color: Colors.grey[400],
             ),
-          );
-        }
+            const SizedBox(height: 16),
+            Text(
+              'No complaints yet',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the + button to file your first complaint',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
-        return RefreshIndicator(
-          onRefresh: _loadComplaints,
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: complaints.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final complaint = complaints[index];
-              return _buildComplaintCard(complaint);
-            },
-          ),
-        );
-      },
+    return RefreshIndicator(
+      onRefresh: _loadComplaints,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: complaints.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final complaint = complaints[index];
+          return _buildComplaintCard(complaint);
+        },
+      ),
     );
   }
 

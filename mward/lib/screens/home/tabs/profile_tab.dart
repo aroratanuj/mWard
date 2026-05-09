@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart' as real;
 import '../../../providers/mock/mock_auth_provider.dart';
-import '../../../providers/complaint_provider.dart';
+import '../../../providers/complaint_provider.dart' as real_complaint;
+import '../../../providers/mock/mock_complaint_provider.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/helpers.dart';
 import '../../../config/theme_config.dart';
@@ -167,16 +168,79 @@ class _ProfileContent extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Statistics
-              Consumer<ComplaintProvider>(
-                builder: (context, complaintProvider, child) {
-                  final userComplaints = complaintProvider.userComplaints;
-                  final total = userComplaints.length;
-                  final pending = userComplaints
-                      .where((c) => c.status == 'pending')
-                      .length;
-                  final resolved = userComplaints
-                      .where((c) => c.status == 'resolved')
-                      .length;
+              if (MockConfig.isMockMode)
+                Consumer<MockComplaintProvider>(
+                  builder: (context, complaintProvider, child) {
+                    final userComplaints = complaintProvider.userComplaints;
+                    final total = userComplaints.length;
+                    final pending = userComplaints
+                        .where((c) => c.status == 'pending')
+                        .length;
+                    final resolved = userComplaints
+                        .where((c) => c.status == 'resolved')
+                        .length;
+
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'My Statistics',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Total',
+                                    total.toString(),
+                                    Icons.assignment,
+                                    Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Pending',
+                                    pending.toString(),
+                                    Icons.pending,
+                                    Colors.orange,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Resolved',
+                                    resolved.toString(),
+                                    Icons.check_circle,
+                                    Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                )
+              else
+                Consumer<real_complaint.ComplaintProvider>(
+                  builder: (context, complaintProvider, child) {
+                    final userComplaints = complaintProvider.userComplaints;
+                    final total = userComplaints.length;
+                    final pending = userComplaints
+                        .where((c) => c.status == 'pending')
+                        .length;
+                    final resolved = userComplaints
+                        .where((c) => c.status == 'resolved')
+                        .length;
 
                   return Card(
                     child: Padding(

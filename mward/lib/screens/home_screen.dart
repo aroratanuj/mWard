@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart' as real;
 import '../providers/mock/mock_auth_provider.dart';
-import '../providers/notification_provider.dart';
+import '../providers/notification_provider.dart' as real_notification;
+import '../providers/mock/mock_notification_provider.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../config/theme_config.dart';
@@ -36,10 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    final notificationProvider = context.read<NotificationProvider>();
-
     if (MockConfig.isMockMode) {
       final mockAuthProvider = context.read<MockAuthProvider>();
+      final notificationProvider = context.read<MockNotificationProvider>();
       if (mockAuthProvider.currentUser != null) {
         await notificationProvider.loadUserNotifications(
           mockAuthProvider.currentUser!.userId,
@@ -47,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } else {
       final authProvider = context.read<real.AuthProvider>();
+      final notificationProvider = context.read<real_notification.NotificationProvider>();
       if (authProvider.currentUser != null) {
         await notificationProvider.loadUserNotifications(
           authProvider.currentUser!.userId,
@@ -61,19 +62,34 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text(AppConstants.appName),
         actions: [
-          Consumer<NotificationProvider>(
-            builder: (context, notificationProvider, child) {
-              return NotificationBell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const NotificationListScreen(),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+          if (MockConfig.isMockMode)
+            Consumer<MockNotificationProvider>(
+              builder: (context, notificationProvider, child) {
+                return NotificationBell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationListScreen(),
+                      ),
+                    );
+                  },
+                );
+              },
+            )
+          else
+            Consumer<real_notification.NotificationProvider>(
+              builder: (context, notificationProvider, child) {
+                return NotificationBell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationListScreen(),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {

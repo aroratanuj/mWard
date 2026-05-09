@@ -70,39 +70,23 @@ Future<void> _configureAmplify() async {
   }
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+// Singleton to hold mock providers
+class _MockProviders {
+  static final _MockProviders _instance = _MockProviders._internal();
+  factory _MockProviders() => _instance;
+  _MockProviders._internal();
 
-  @override
-  State<MyApp> createState() => _MyAppState();
+  late final MockAuthProvider auth = MockAuthProvider();
+  late final MockComplaintProvider complaints = MockComplaintProvider();
+  late final MockNotificationProvider notifications = MockNotificationProvider();
+
+  Future<void> init() async {
+    await auth.init();
+  }
 }
 
-class _MyAppState extends State<MyApp> {
-  // Create mock providers as instance variables
-  late final MockAuthProvider _mockAuthProvider;
-  late final MockComplaintProvider _mockComplaintProvider;
-  late final MockNotificationProvider _mockNotificationProvider;
-
-  @override
-  void initState() {
-    super.initState();
-
-    if (MockConfig.isMockMode) {
-      debugPrint('Mock Mode: Initializing mock providers in initState');
-
-      // Initialize mock providers
-      _mockAuthProvider = MockAuthProvider();
-      _mockComplaintProvider = MockComplaintProvider();
-      _mockNotificationProvider = MockNotificationProvider();
-
-      // Initialize auth provider
-      _mockAuthProvider.init().then((_) {
-        debugPrint('Mock Mode: Auth provider initialized successfully');
-      }).catchError((e) {
-        debugPrint('Mock Mode: Error initializing auth provider: $e');
-      });
-    }
-  }
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -131,10 +115,18 @@ class _MyAppState extends State<MyApp> {
       debugPrint('Mock Mode: Using mock providers');
       debugPrint('Mock Mode: isMockMode = ${MockConfig.isMockMode}');
 
+      // Get singleton instance and initialize
+      final mockProviders = _MockProviders();
+      mockProviders.init().then((_) {
+        debugPrint('Mock Mode: Auth provider initialized successfully');
+      }).catchError((e) {
+        debugPrint('Mock Mode: Error initializing auth provider: $e');
+      });
+
       final providers = [
-        ChangeNotifierProvider<MockAuthProvider>.value(value: _mockAuthProvider),
-        ChangeNotifierProvider<MockComplaintProvider>.value(value: _mockComplaintProvider),
-        ChangeNotifierProvider<MockNotificationProvider>.value(value: _mockNotificationProvider),
+        ChangeNotifierProvider<MockAuthProvider>.value(value: mockProviders.auth),
+        ChangeNotifierProvider<MockComplaintProvider>.value(value: mockProviders.complaints),
+        ChangeNotifierProvider<MockNotificationProvider>.value(value: mockProviders.notifications),
         ChangeNotifierProvider(create: (_) => UserProvider()),
       ];
       debugPrint('Mock Mode: Registered ${providers.length} providers');

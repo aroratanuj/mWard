@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/mock_config.dart';
-import '../providers/auth_provider.dart';
-import '../providers/complaint_provider.dart';
-import '../providers/notification_provider.dart';
+import '../providers/auth_provider.dart' as real_auth;
+import '../providers/mock/mock_auth_provider.dart';
+import '../providers/complaint_provider.dart' as real_complaint;
+import '../providers/mock/mock_complaint_provider.dart';
+import '../providers/notification_provider.dart' as real_notification;
+import '../providers/mock/mock_notification_provider.dart';
 import '../services/hive_service.dart';
 import '../screens/complaint/file_complaint_screen.dart';
 import '../screens/admin/create_notification_screen.dart';
@@ -255,7 +258,7 @@ class DeveloperTools extends StatelessWidget {
   }
 
   void _loginAsUser(BuildContext context) async {
-    final authProvider = context.read<AuthProvider>();
+    final authProvider = context.read<MockAuthProvider>();
     try {
       await authProvider.sendOTP(MockConfig.testPhoneUser);
       await authProvider.verifyOTP(MockConfig.testPhoneUser, MockConfig.testOTP);
@@ -281,7 +284,7 @@ class DeveloperTools extends StatelessWidget {
   }
 
   void _loginAsAdmin(BuildContext context) async {
-    final authProvider = context.read<AuthProvider>();
+    final authProvider = context.read<MockAuthProvider>();
     try {
       await authProvider.sendOTP(MockConfig.testPhoneAdmin);
       await authProvider.verifyOTP(MockConfig.testPhoneAdmin, MockConfig.testOTP);
@@ -331,8 +334,8 @@ class DeveloperTools extends StatelessWidget {
     if (confirmed == true && context.mounted) {
       await HiveService.clearAll();
       if (context.mounted) {
-        final complaintProvider = context.read<ComplaintProvider>();
-        final notificationProvider = context.read<NotificationProvider>();
+        final complaintProvider = context.read<MockComplaintProvider>();
+        final notificationProvider = context.read<MockNotificationProvider>();
         await complaintProvider.resetComplaints();
         await notificationProvider.resetNotifications();
         

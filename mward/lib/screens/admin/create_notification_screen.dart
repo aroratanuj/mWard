@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
-import '../../providers/notification_provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart' as real;
+import '../../providers/mock/mock_notification_provider.dart';
+import '../../providers/auth_provider.dart' as real_auth;
+import '../../providers/mock/mock_auth_provider.dart';
 import '../../config/theme_config.dart';
+import '../../config/mock_config.dart';
 
 class CreateNotificationScreen extends StatefulWidget {
   const CreateNotificationScreen({super.key});
@@ -91,38 +94,74 @@ class _CreateNotificationScreenState extends State<CreateNotificationScreen> {
     });
 
     try {
-      final authProvider = context.read<AuthProvider>();
-      final notificationProvider = context.read<NotificationProvider>();
+      if (MockConfig.isMockMode) {
+        final authProvider = context.read<MockAuthProvider>();
+        final notificationProvider = context.read<MockNotificationProvider>();
 
-      // TODO: Upload image to S3 if selected
-      String? imageUrl;
-      if (_selectedImage != null) {
-        // imageUrl = await uploadImageToS3(_selectedImage!);
-      }
+        // TODO: Upload image to S3 if selected
+        String? imageUrl;
+        if (_selectedImage != null) {
+          // imageUrl = await uploadImageToS3(_selectedImage!);
+        }
 
-      if (_selectedTarget == 'all' || _selectedType == 'broadcast') {
-        // Send broadcast notification
-        await notificationProvider.sendBroadcastNotification(
-          title: _titleController.text.trim(),
-          message: _messageController.text.trim(),
-          createdBy: authProvider.currentUser?.userId ?? 'admin',
-          creatorName: authProvider.currentUser?.name,
-          imageUrl: imageUrl,
-          expiryDate: _expiryDate,
-          priority: _selectedPriority,
-        );
+        if (_selectedTarget == 'all' || _selectedType == 'broadcast') {
+          // Send broadcast notification
+          await notificationProvider.sendBroadcastNotification(
+            title: _titleController.text.trim(),
+            message: _messageController.text.trim(),
+            createdBy: authProvider.currentUser?.userId ?? 'admin',
+            creatorName: authProvider.currentUser?.name,
+            imageUrl: imageUrl,
+            expiryDate: _expiryDate,
+            priority: _selectedPriority,
+          );
+        } else {
+          // Send ward-specific notification
+          await notificationProvider.sendWardNotification(
+            title: _titleController.text.trim(),
+            message: _messageController.text.trim(),
+            wardCode: _selectedTarget,
+            createdBy: authProvider.currentUser?.userId ?? 'admin',
+            creatorName: authProvider.currentUser?.name,
+            imageUrl: imageUrl,
+            expiryDate: _expiryDate,
+            priority: _selectedPriority,
+          );
+        }
       } else {
-        // Send ward-specific notification
-        await notificationProvider.sendWardNotification(
-          title: _titleController.text.trim(),
-          message: _messageController.text.trim(),
-          wardCode: _selectedTarget,
-          createdBy: authProvider.currentUser?.userId ?? 'admin',
-          creatorName: authProvider.currentUser?.name,
-          imageUrl: imageUrl,
-          expiryDate: _expiryDate,
-          priority: _selectedPriority,
-        );
+        final authProvider = context.read<real_auth.AuthProvider>();
+        final notificationProvider = context.read<real.NotificationProvider>();
+
+        // TODO: Upload image to S3 if selected
+        String? imageUrl;
+        if (_selectedImage != null) {
+          // imageUrl = await uploadImageToS3(_selectedImage!);
+        }
+
+        if (_selectedTarget == 'all' || _selectedType == 'broadcast') {
+          // Send broadcast notification
+          await notificationProvider.sendBroadcastNotification(
+            title: _titleController.text.trim(),
+            message: _messageController.text.trim(),
+            createdBy: authProvider.currentUser?.userId ?? 'admin',
+            creatorName: authProvider.currentUser?.name,
+            imageUrl: imageUrl,
+            expiryDate: _expiryDate,
+            priority: _selectedPriority,
+          );
+        } else {
+          // Send ward-specific notification
+          await notificationProvider.sendWardNotification(
+            title: _titleController.text.trim(),
+            message: _messageController.text.trim(),
+            wardCode: _selectedTarget,
+            createdBy: authProvider.currentUser?.userId ?? 'admin',
+            creatorName: authProvider.currentUser?.name,
+            imageUrl: imageUrl,
+            expiryDate: _expiryDate,
+            priority: _selectedPriority,
+          );
+        }
       }
 
       if (mounted) {

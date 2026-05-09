@@ -7,14 +7,16 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:video_player/video_player.dart';
 
-import '../../providers/complaint_provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/complaint_provider.dart' as real_complaint;
+import '../../providers/mock/mock_complaint_provider.dart';
+import '../../providers/auth_provider.dart' as real_auth;
+import '../../providers/mock/mock_auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/validators.dart';
 import '../../config/theme_config.dart';
+import '../../config/mock_config.dart';
 
 enum MediaType { photo, video }
 
@@ -265,48 +267,94 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
     });
 
     try {
-      final authProvider = context.read<AuthProvider>();
-      final complaintProvider = context.read<ComplaintProvider>();
+      if (MockConfig.isMockMode) {
+        final authProvider = context.read<MockAuthProvider>();
+        final complaintProvider = context.read<MockComplaintProvider>();
 
-      if (authProvider.currentUser == null) {
-        throw Exception('User not authenticated');
-      }
+        if (authProvider.currentUser == null) {
+          throw Exception('User not authenticated');
+        }
 
-      // TODO: Upload images/videos to S3 and get URLs
-      final photoUrls = <String>[];
-      final videoUrls = <String>[];
-      
-      // Combine photo and video URLs
-      final allMediaUrls = [...photoUrls, ...videoUrls];
-      
-      // Get audio URL if recorded
-      String? audioUrl;
-      if (_recordedAudio != null) {
-        // TODO: Upload audio to S3
-        audioUrl = 'mock-audio-url';
-      }
+        // TODO: Upload images/videos to S3 and get URLs
+        final photoUrls = <String>[];
+        final videoUrls = <String>[];
 
-      // Create complaint
-      await complaintProvider.createComplaint(
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        category: _selectedCategory,
-        priority: _selectedPriority,
-        photoUrls: allMediaUrls,
-        location: _currentPosition!,
-        address: _addressController.text.trim().isEmpty
-            ? null
-            : _addressController.text.trim(),
-      );
+        // Combine photo and video URLs
+        final allMediaUrls = [...photoUrls, ...videoUrls];
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(AppConstants.successMessageComplaintFiled),
-            backgroundColor: AppTheme.successColor,
-          ),
+        // Get audio URL if recorded
+        String? audioUrl;
+        if (_recordedAudio != null) {
+          // TODO: Upload audio to S3
+          audioUrl = 'mock-audio-url';
+        }
+
+        // Create complaint
+        await complaintProvider.createComplaint(
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          category: _selectedCategory,
+          priority: _selectedPriority,
+          photoUrls: allMediaUrls,
+          location: _currentPosition!,
+          address: _addressController.text.trim().isEmpty
+              ? null
+              : _addressController.text.trim(),
         );
-        Navigator.of(context).pop(true);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppConstants.successMessageComplaintFiled),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        final authProvider = context.read<real_auth.AuthProvider>();
+        final complaintProvider = context.read<real_complaint.ComplaintProvider>();
+
+        if (authProvider.currentUser == null) {
+          throw Exception('User not authenticated');
+        }
+
+        // TODO: Upload images/videos to S3 and get URLs
+        final photoUrls = <String>[];
+        final videoUrls = <String>[];
+
+        // Combine photo and video URLs
+        final allMediaUrls = [...photoUrls, ...videoUrls];
+
+        // Get audio URL if recorded
+        String? audioUrl;
+        if (_recordedAudio != null) {
+          // TODO: Upload audio to S3
+          audioUrl = 'mock-audio-url';
+        }
+
+        // Create complaint
+        await complaintProvider.createComplaint(
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          category: _selectedCategory,
+          priority: _selectedPriority,
+          photoUrls: allMediaUrls,
+          location: _currentPosition!,
+          address: _addressController.text.trim().isEmpty
+              ? null
+              : _addressController.text.trim(),
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppConstants.successMessageComplaintFiled),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) {

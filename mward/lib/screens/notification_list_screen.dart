@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/notification.dart' as model;
-import '../providers/notification_provider.dart';
+import '../providers/notification_provider.dart' as real;
+import '../providers/mock/mock_notification_provider.dart';
 import '../config/theme_config.dart';
+import '../config/mock_config.dart';
 
 class NotificationListScreen extends StatefulWidget {
   const NotificationListScreen({super.key});
@@ -23,114 +25,130 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    final notificationProvider = context.read<NotificationProvider>();
-    // TODO: Get actual userId from auth provider
-    await notificationProvider.loadUserNotifications('user-id-placeholder');
+    if (MockConfig.isMockMode) {
+      final notificationProvider = context.read<MockNotificationProvider>();
+      // TODO: Get actual userId from auth provider
+      await notificationProvider.loadUserNotifications('user-id-placeholder');
+    } else {
+      final notificationProvider = context.read<real.NotificationProvider>();
+      // TODO: Get actual userId from auth provider
+      await notificationProvider.loadUserNotifications('user-id-placeholder');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadNotifications,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-      body: Consumer<NotificationProvider>(
-        builder: (context, notificationProvider, child) {
-          if (notificationProvider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+    if (MockConfig.isMockMode) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Notifications'),
+        ),
+        body: Consumer<MockNotificationProvider>(
+          builder: (context, notificationProvider, child) {
+            return _buildContent(notificationProvider);
+          },
+        ),
+      );
+    } else {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Notifications'),
+        ),
+        body: Consumer<real.NotificationProvider>(
+          builder: (context, notificationProvider, child) {
+            return _buildContent(notificationProvider);
+          },
+        ),
+      );
+    }
+  }
 
-          if (notificationProvider.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: AppTheme.errorColor,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading notifications',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    notificationProvider.error!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadNotifications,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
+  Widget _buildContent(dynamic notificationProvider) {
+    if (notificationProvider.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-          final notifications = notificationProvider.userNotifications;
-
-          if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No notifications',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You\'ll see updates and news here',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: _loadNotifications,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: notifications.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                return _buildNotificationTile(notification);
-              },
+    if (notificationProvider.error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 48,
+              color: AppTheme.errorColor,
             ),
-          );
+            const SizedBox(height: 16),
+            Text(
+              'Error loading notifications',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              notificationProvider.error!,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadNotifications,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final notifications = notificationProvider.userNotifications;
+
+    if (notifications.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.notifications_none,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No notifications',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You\'ll see updates and news here',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadNotifications,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: notifications.length,
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final notification = notifications[index];
+          return _buildNotificationTile(notification);
         },
       ),
     );
@@ -229,9 +247,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           : null,
       onTap: () {
         // Mark as read and show details
-        context
-            .read<NotificationProvider>()
-            .markAsRead(notification.notificationId, 'user-id-placeholder');
+        if (MockConfig.isMockMode) {
+          context.read<MockNotificationProvider>().markAsRead(notification.notificationId, 'user-id-placeholder');
+        } else {
+          context.read<real.NotificationProvider>().markAsRead(notification.notificationId, 'user-id-placeholder');
+        }
         _showNotificationDetails(notification);
       },
     );
