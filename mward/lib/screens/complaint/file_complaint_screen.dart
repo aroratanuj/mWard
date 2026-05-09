@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -31,13 +32,13 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
 
-  String _selectedCategory = 'infrastructure';
+  String _selectedCategory = 'Water Supply';
   String _selectedPriority = 'medium';
   Position? _currentPosition;
   bool _isFetchingLocation = false;
   bool _isLoading = false;
 
-  final List<File> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   final List<File> _selectedVideos = [];
   String? _recordedAudio;
 
@@ -480,12 +481,19 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        _selectedImages[index],
-                        width: 120,
-                        height: 120,
-                        fit: BoxFit.cover,
-                      ),
+                      child: kIsWeb
+                          ? Image.network(
+                              _selectedImages[index].path,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.file(
+                              File(_selectedImages[index].path),
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
                     ),
                     Positioned(
                       top: 4,
@@ -530,7 +538,7 @@ class _FileComplaintScreenState extends State<FileComplaintScreen> {
 
         if (pickedFile != null) {
           setState(() {
-            _selectedImages.add(File(pickedFile.path));
+            _selectedImages.add(pickedFile);
           });
         }
       },
