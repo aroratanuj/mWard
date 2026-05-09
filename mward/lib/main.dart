@@ -70,8 +70,39 @@ Future<void> _configureAmplify() async {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // Create mock providers as instance variables
+  late final MockAuthProvider _mockAuthProvider;
+  late final MockComplaintProvider _mockComplaintProvider;
+  late final MockNotificationProvider _mockNotificationProvider;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (MockConfig.isMockMode) {
+      debugPrint('Mock Mode: Initializing mock providers in initState');
+
+      // Initialize mock providers
+      _mockAuthProvider = MockAuthProvider();
+      _mockComplaintProvider = MockComplaintProvider();
+      _mockNotificationProvider = MockNotificationProvider();
+
+      // Initialize auth provider
+      _mockAuthProvider.init().then((_) {
+        debugPrint('Mock Mode: Auth provider initialized successfully');
+      }).catchError((e) {
+        debugPrint('Mock Mode: Error initializing auth provider: $e');
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,17 +129,16 @@ class MyApp extends StatelessWidget {
   List<ChangeNotifierProvider> _getProviders() {
     if (MockConfig.isMockMode) {
       debugPrint('Mock Mode: Using mock providers');
-      
-      // Create and initialize mock auth provider
-      final mockAuthProvider = MockAuthProvider();
-      mockAuthProvider.init(); // Initialize to check for existing auth state
-      
-      return [
-        ChangeNotifierProvider.value(value: mockAuthProvider),
-        ChangeNotifierProvider(create: (_) => MockComplaintProvider()),
-        ChangeNotifierProvider(create: (_) => MockNotificationProvider()),
+      debugPrint('Mock Mode: isMockMode = ${MockConfig.isMockMode}');
+
+      final providers = [
+        ChangeNotifierProvider<MockAuthProvider>.value(value: _mockAuthProvider),
+        ChangeNotifierProvider<MockComplaintProvider>.value(value: _mockComplaintProvider),
+        ChangeNotifierProvider<MockNotificationProvider>.value(value: _mockNotificationProvider),
         ChangeNotifierProvider(create: (_) => UserProvider()),
       ];
+      debugPrint('Mock Mode: Registered ${providers.length} providers');
+      return providers;
     } else {
       debugPrint('Production Mode: Using real providers');
       return [

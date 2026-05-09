@@ -12,6 +12,8 @@ class MockConfig {
   // Test Accounts
   static const String testPhoneAdmin = '+919876543210';
   static const String testPhoneUser = '+919812345678';
+  static const String testPhoneAdminShort = '9876543210';
+  static const String testPhoneUserShort = '9812345678';
   static const String testOTP = '123456';
 
   // Mock Data Settings

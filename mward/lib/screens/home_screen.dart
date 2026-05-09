@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider.dart' as real;
+import '../providers/mock/mock_auth_provider.dart';
 import '../providers/notification_provider.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../config/theme_config.dart';
+import '../config/mock_config.dart';
 import '../widgets/notification_bell.dart';
 import 'notification_list_screen.dart';
 import 'home/tabs/complaints_tab.dart';
@@ -34,13 +36,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    final authProvider = context.read<AuthProvider>();
     final notificationProvider = context.read<NotificationProvider>();
 
-    if (authProvider.currentUser != null) {
-      await notificationProvider.loadUserNotifications(
-        authProvider.currentUser!.userId,
-      );
+    if (MockConfig.isMockMode) {
+      final mockAuthProvider = context.read<MockAuthProvider>();
+      if (mockAuthProvider.currentUser != null) {
+        await notificationProvider.loadUserNotifications(
+          mockAuthProvider.currentUser!.userId,
+        );
+      }
+    } else {
+      final authProvider = context.read<real.AuthProvider>();
+      if (authProvider.currentUser != null) {
+        await notificationProvider.loadUserNotifications(
+          authProvider.currentUser!.userId,
+        );
+      }
     }
   }
 
@@ -154,7 +165,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await context.read<AuthProvider>().logout();
+              if (MockConfig.isMockMode) {
+                await context.read<MockAuthProvider>().logout();
+              } else {
+                await context.read<real.AuthProvider>().logout();
+              }
               if (mounted) {
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   '/',

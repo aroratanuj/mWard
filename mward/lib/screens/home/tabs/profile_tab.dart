@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/auth_provider.dart' as local;
+import '../../../providers/auth_provider.dart' as real;
+import '../../../providers/mock/mock_auth_provider.dart';
 import '../../../providers/complaint_provider.dart';
 import '../../../utils/constants.dart';
 import '../../../utils/helpers.dart';
@@ -13,17 +14,46 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<local.AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
+    if (MockConfig.isMockMode) {
+      return Consumer<MockAuthProvider>(
+        builder: (context, authProvider, child) {
+          final user = authProvider.currentUser;
 
-        if (user == null) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+          if (user == null) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
 
-        return SingleChildScrollView(
+          return _ProfileContent(user: user);
+        },
+      );
+    } else {
+      return Consumer<real.AuthProvider>(
+        builder: (context, authProvider, child) {
+          final user = authProvider.currentUser;
+
+          if (user == null) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          return _ProfileContent(user: user);
+        },
+      );
+    }
+  }
+}
+
+class _ProfileContent extends StatelessWidget {
+  final dynamic user;
+
+  const _ProfileContent({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,8 +306,6 @@ class ProfileTab extends StatelessWidget {
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildStatItem(String label, String value, IconData icon, Color color) {
@@ -380,7 +408,11 @@ class ProfileTab extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await context.read<local.AuthProvider>().logout();
+              if (MockConfig.isMockMode) {
+                await context.read<MockAuthProvider>().logout();
+              } else {
+                await context.read<real.AuthProvider>().logout();
+              }
               if (context.mounted) {
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   '/',

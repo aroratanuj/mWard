@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart' as real;
+import '../../providers/mock/mock_auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/validators.dart';
 import '../../config/theme_config.dart';
+import '../../config/mock_config.dart';
 import '../home_screen.dart';
 
 class OTPScreen extends StatefulWidget {
@@ -54,9 +56,14 @@ class _OTPScreenState extends State<OTPScreen> {
 
     try {
       final otp = _otpControllers.map((c) => c.text).join();
-      final authProvider = context.read<AuthProvider>();
 
-      await authProvider.verifyOTP(widget.phoneNumber, otp);
+      if (MockConfig.isMockMode) {
+        final mockAuthProvider = context.read<MockAuthProvider>();
+        await mockAuthProvider.verifyOTP(widget.phoneNumber, otp);
+      } else {
+        final authProvider = context.read<real.AuthProvider>();
+        await authProvider.verifyOTP(widget.phoneNumber, otp);
+      }
 
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -93,8 +100,13 @@ class _OTPScreenState extends State<OTPScreen> {
     });
 
     try {
-      final authProvider = context.read<AuthProvider>();
-      await authProvider.sendOTP(widget.phoneNumber);
+      if (MockConfig.isMockMode) {
+        final mockAuthProvider = context.read<MockAuthProvider>();
+        await mockAuthProvider.sendOTP(widget.phoneNumber);
+      } else {
+        final authProvider = context.read<real.AuthProvider>();
+        await authProvider.sendOTP(widget.phoneNumber);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
